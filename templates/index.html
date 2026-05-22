@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}ReBekas — Marketplace Barang Bekas{% endblock %}
+
+{% block content %}
+<main>
+  <!-- HERO SECTION -->
+  <div class="hero">
+    <div class="hero-text">
+      <h1>Jual Beli Barang Bekas<br>Mudah & Terpercaya</h1>
+      <p>Temukan ribuan barang bekas berkualitas dari seluruh Indonesia. Hemat lebih banyak, berikan barangmu kehidupan baru.</p>
+      <div class="hero-actions">
+        <button class="btn" style="background:#fff;color:var(--primary);font-weight:700" onclick="window.location.href='/browse'">Jelajahi Produk</button>
+        <button class="btn" style="background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4)" onclick="window.location.href='/upload'">+ Mulai Jual</button>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="hero-stat-num">12K+</span><span class="hero-stat-label">Produk Aktif</span></div>
+      <div class="hero-stat"><span class="hero-stat-num">5.8K</span><span class="hero-stat-label">Penjual</span></div>
+      <div class="hero-stat"><span class="hero-stat-num">98%</span><span class="hero-stat-label">Kepuasan</span></div>
+    </div>
+  </div>
+
+  <!-- CATEGORIES -->
+  <div class="categories">
+    <div class="cat-chip active" onclick="filterByCategory('all',this)"><span>🛒</span> Semua</div>
+    <div class="cat-chip" onclick="filterByCategory('elektronik',this)"><span>📱</span> Elektronik</div>
+    <div class="cat-chip" onclick="filterByCategory('fashion',this)"><span>👗</span> Fashion</div>
+    <div class="cat-chip" onclick="filterByCategory('furniture',this)"><span>🪑</span> Furniture</div>
+    <div class="cat-chip" onclick="filterByCategory('kendaraan',this)"><span>🚗</span> Kendaraan</div>
+    <div class="cat-chip" onclick="filterByCategory('olahraga',this)"><span>⚽</span> Olahraga</div>
+    <div class="cat-chip" onclick="filterByCategory('buku',this)"><span>📚</span> Buku</div>
+    <div class="cat-chip" onclick="filterByCategory('dapur',this)"><span>🍳</span> Dapur</div>
+    <div class="cat-chip" onclick="filterByCategory('mainan',this)"><span>🧸</span> Mainan</div>
+    <div class="cat-chip" onclick="filterByCategory('alat',this)"><span>🔧</span> Alat</div>
+  </div>
+
+  <!-- LATEST POSTS -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-tag">🆕 Postingan Terbaru</div>
+        <div class="section-title">Jelajahi Postingan Terbaru</div>
+      </div>
+      <a class="see-all" href="/browse">Lihat Semua →</a>
+    </div>
+    <div class="product-grid" id="home-grid"></div>
+  </div>
+
+  <!-- RECOMMENDATIONS -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-tag">⭐ Rekomendasi</div>
+        <div class="section-title">Rekomendasi Untukmu</div>
+      </div>
+      <a class="see-all" href="/browse">Lihat Semua →</a>
+    </div>
+    <div class="product-grid" id="reco-grid"></div>
+  </div>
+</main>
+
+<!-- PAGE CONTAINER FOR CLIENT-SIDE ROUTING -->
+<div id="page-container">
+  <!-- Browse Page -->
+  <div class="page" id="page-browse">
+    <main>
+      <div class="breadcrumb">
+        <a onclick="showPage('home')">Beranda</a> / <span>Semua Produk</span>
+      </div>
+      <div class="filter-bar">
+        <div class="filter-group">
+          <span class="filter-label">Kategori:</span>
+          <select id="filter-cat" onchange="applyFilters()">
+            <option value="">Semua</option>
+            <option value="elektronik">Elektronik</option>
+            <option value="fashion">Fashion</option>
+            <option value="furniture">Furniture</option>
+            <option value="kendaraan">Kendaraan</option>
+            <option value="olahraga">Olahraga</option>
+            <option value="buku">Buku</option>
+            <option value="dapur">Dapur</option>
+            <option value="mainan">Mainan</option>
+            <option value="alat">Alat</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Kondisi:</span>
+          <select id="filter-cond" onchange="applyFilters()">
+            <option value="">Semua</option>
+            <option value="Sangat Baik">Sangat Baik</option>
+            <option value="Baik">Baik</option>
+            <option value="Cukup">Cukup</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Harga:</span>
+          <div class="price-range">
+            <input type="number" id="filter-min" placeholder="Min" oninput="applyFilters()" />
+            <span>–</span>
+            <input type="number" id="filter-max" placeholder="Max" oninput="applyFilters()" />
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Urutkan:</span>
+          <select id="filter-sort" onchange="applyFilters()">
+            <option value="newest">Terbaru</option>
+            <option value="price-asc">Harga Terendah</option>
+            <option value="price-desc">Harga Tertinggi</option>
+            <option value="rating">Rating</option>
+          </select>
+        </div>
+        <button class="btn btn-outline" onclick="resetFilters()">Reset</button>
+      </div>
+      <div class="results-count" id="results-count"></div>
+      <div class="product-grid" id="browse-grid"></div>
+    </main>
+  </div>
+
+  <!-- Detail Page -->
+  <div class="page" id="page-detail">
+    <main>
+      <div class="breadcrumb">
+        <a onclick="showPage('home')">Beranda</a> /
+        <a onclick="showPage('browse')">Produk</a> /
+        <span id="detail-breadcrumb">Detail</span>
+      </div>
+      <div class="detail-layout">
+        <div>
+          <div class="detail-gallery" id="detail-img"></div>
+          <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:1.25rem;margin-top:1rem">
+            <div style="font-size:15px;font-weight:700;margin-bottom:0.75rem;color:var(--gray-800)">Deskripsi Produk</div>
+            <p id="detail-desc" style="font-size:14px;color:var(--gray-600);line-height:1.8"></p>
+          </div>
+        </div>
+        <div>
+          <div class="detail-info">
+            <div id="detail-badge" style="margin-bottom:10px"></div>
+            <div class="detail-price" id="detail-price"></div>
+            <div class="detail-title" id="detail-title"></div>
+            <div class="detail-meta-row">📍 <strong id="detail-location"></strong></div>
+            <div class="detail-meta-row">🏷️ Kondisi: <strong id="detail-condition"></strong></div>
+            <div class="detail-meta-row">📂 Kategori: <strong id="detail-category"></strong></div>
+            <div class="detail-meta-row">⭐ Rating: <strong id="detail-rating"></strong></div>
+            <hr class="detail-divider" />
+            <div class="seller-card">
+              <div class="seller-avatar" id="detail-seller-avatar"></div>
+              <div>
+                <div class="seller-name" id="detail-seller-name"></div>
+                <div class="seller-rating">⭐ 4.8 · Anggota sejak 2023</div>
+              </div>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-primary btn-full" id="detail-cart-btn" onclick="addCurrentToCart()">🛒 Tambah ke Keranjang</button>
+              <button class="btn btn-outline btn-full" onclick="showToast('💬 Fitur chat tersedia di Sprint 2','')">💬 Chat Penjual</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Cart Page -->
+  <div class="page" id="page-cart">
+    <main>
+      <div class="breadcrumb"><a onclick="showPage('home')">Beranda</a> / <span>Keranjang</span></div>
+      <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:1.5rem">🛒 Keranjang Belanja</h2>
+      <div id="cart-empty" class="cart-empty" style="display:none">
+        <div class="cart-empty-icon">🛒</div>
+        <div class="empty-text">Keranjang masih kosong</div>
+        <div class="empty-sub" style="margin-bottom:1.5rem">Tambahkan produk dari halaman browse</div>
+        <button class="btn btn-primary" onclick="showPage('browse')">Mulai Belanja</button>
+      </div>
+      <div class="cart-layout" id="cart-content">
+        <div class="cart-items" id="cart-items-list"></div>
+        <div class="cart-summary">
+          <div style="font-size:1rem;font-weight:700;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200)">Ringkasan Pesanan</div>
+          <div class="summary-row"><span>Subtotal (<span id="cart-qty">0</span> item)</span><span id="cart-subtotal">Rp 0</span></div>
+          <div class="summary-row"><span>Ongkos Kirim</span><span style="color:var(--success)">Gratis</span></div>
+          <div class="summary-row summary-total"><span>Total</span><span id="cart-total" style="color:var(--primary)">Rp 0</span></div>
+          <button class="btn btn-primary btn-full" style="margin-top:1rem" onclick="checkout()">Checkout</button>
+          <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="showPage('browse')">Lanjut Belanja</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+{% endblock %}

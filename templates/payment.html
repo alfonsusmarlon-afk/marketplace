@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Pembayaran - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+<h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem">💳 Pembayaran</h2>
+<div class="payment-methods">
+<div class="payment-card">
+<h3>Transfer Bank</h3>
+<p>Bank BCA - 1234567890 a.n ReBekas Marketplace</p>
+<button class="btn btn-primary" onclick="completePayment()">Konfirmasi Pembayaran</button>
+</div>
+<div class="payment-card">
+<h3>QRIS</h3>
+<div style="font-size:5rem;text-align:center">📱</div>
+<button class="btn btn-primary" onclick="completePayment()">Saya Sudah Bayar</button>
+</div>
+</div>
+</main>
+{% endblock %}

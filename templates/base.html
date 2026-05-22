@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ReBekas — Marketplace Barang Bekas{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+  <!-- NAVIGATION -->
+  <nav>
+    <div class="nav-inner">
+      <a class="logo" href="/" style="cursor:pointer">
+        ReBekas
+        <span class="logo-badge">BETA</span>
+      </a>
+      <div class="search-bar" style="margin-left:1.5rem">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="nav-search" placeholder="Cari barang bekas..." oninput="handleNavSearch(this.value)" onkeydown="if(event.key==='Enter')goSearch()" />
+      </div>
+      <div class="nav-actions">
+        <button class="btn btn-outline cart-btn" onclick="showPage('cart')">
+          🛒
+          <span class="cart-count" id="cart-count">0</span>
+        </button>
+        <div id="nav-auth">
+          <button class="btn btn-outline" onclick="window.location.href='/login'">Masuk</button>
+          <button class="btn btn-primary" onclick="window.location.href='/register'" style="margin-left:6px">Daftar</button>
+        </div>
+        <div id="nav-user" style="display:none">
+          <button class="btn btn-accent" onclick="window.location.href='/upload'" style="margin-right:6px">+ Jual</button>
+          <div class="user-menu">
+            <div class="user-avatar" id="user-avatar-btn" onclick="toggleDropdown()">A</div>
+            <div class="user-dropdown" id="user-dropdown">
+              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/'">🏠 Beranda</div>
+              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/upload'">📦 Jual Barang</div>
+              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/wishlist'">❤️ Wishlist</div>
+              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/chat'">💬 Chat</div>
+              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/notifications'">🔔 Notifikasi</div>
+              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/store'">🏪 Toko Saya</div>
+              <div class="dropdown-item" id="admin-menu-item" style="display:none" onclick="closeDropdown();window.location.href='/admin'">🛠 Dashboard Admin</div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item danger" onclick="logout()">🚪 Keluar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  {% block content %}{% endblock %}
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast" id="toast"></div>
+
+  <!-- SCRIPTS -->
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  {% block scripts %}{% endblock %}
+
+</body>
+</html>

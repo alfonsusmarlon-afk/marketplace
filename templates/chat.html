@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+<h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem">💬 Chat Penjual</h2>
+<div class="chat-box" id="chat-box">
+<div class="chat-message chat-seller">Halo kak, barang masih tersedia.</div>
+</div>
+<div style="display:flex;gap:10px">
+<input type="text" class="form-input" id="chat-input" placeholder="Ketik pesan..." />
+<button class="btn btn-primary" onclick="sendMessage()">Kirim</button>
+</div>
+</main>
+{% endblock %}

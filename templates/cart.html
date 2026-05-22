@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Keranjang Belanja - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+  <div class="breadcrumb"><a href="/">Beranda</a> / <span>Keranjang</span></div>
+  <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:1.5rem">🛒 Keranjang Belanja</h2>
+  <div id="cart-empty" class="cart-empty" style="display:none">
+    <div class="cart-empty-icon">🛒</div>
+    <div class="empty-text">Keranjang masih kosong</div>
+    <div class="empty-sub" style="margin-bottom:1.5rem">Tambahkan produk dari halaman browse</div>
+    <button class="btn btn-primary" onclick="window.location.href='/browse'">Mulai Belanja</button>
+  </div>
+  <div class="cart-layout" id="cart-content">
+    <div class="cart-items" id="cart-items-list"></div>
+    <div class="cart-summary">
+      <div style="font-size:1rem;font-weight:700;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--gray-200)">Ringkasan Pesanan</div>
+      <div class="summary-row"><span>Subtotal (<span id="cart-qty">0</span> item)</span><span id="cart-subtotal">Rp 0</span></div>
+      <div class="summary-row"><span>Ongkos Kirim</span><span style="color:var(--success)">Gratis</span></div>
+      <div class="summary-row summary-total"><span>Total</span><span id="cart-total" style="color:var(--primary)">Rp 0</span></div>
+      <button class="btn btn-primary btn-full" style="margin-top:1rem" onclick="checkout()">Checkout</button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="window.location.href='/browse'">Lanjut Belanja</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  renderCart();
+</script>
+{% endblock %}

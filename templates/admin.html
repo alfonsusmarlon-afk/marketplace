@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Admin - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+<div id="admin-check"></div>
+<h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem">🛠 Dashboard Admin</h2>
+<div class="admin-cards">
+<div class="admin-card"><p>Total User</p><h3 id="total-users">-</h3></div>
+<div class="admin-card"><p>Total Produk</p><h3 id="total-products">-</h3></div>
+<div class="admin-card"><p>Total Transaksi</p><h3 id="total-orders">-</h3></div>
+<div class="admin-card"><p>Pendapatan</p><h3 id="total-revenue">Rp 0</h3></div>
+</div>
+</main>
+
+<script>
+  // Check if user is admin
+  function checkAdminAccess() {
+    if (!currentUser) {
+      document.getElementById('admin-check').innerHTML = '<div style="text-align:center;padding:2rem;background:#fff;border-radius:var(--radius);margin-bottom:2rem"><h3>Silakan masuk terlebih dahulu</h3><p>Admin dashboard hanya dapat diakses oleh pengguna yang sudah masuk.</p><button class="btn btn-primary" onclick="window.location.href=\'/login\'">Masuk</button></div>';
+      return;
+    }
+    
+    if (!currentUser.is_admin) {
+      document.getElementById('admin-check').innerHTML = '<div style="text-align:center;padding:2rem;background:#fff;border-radius:var(--radius);margin-bottom:2rem"><h3>❌ Akses Ditolak</h3><p>Anda tidak memiliki izin untuk mengakses dashboard admin.</p><p>Hubungi administrator untuk informasi lebih lanjut.</p><button class="btn btn-primary" onclick="window.location.href=\'/\'">Kembali ke Beranda</button></div>';
+      document.querySelector('h2').style.display = 'none';
+      document.querySelector('.admin-cards').style.display = 'none';
+      return;
+    }
+    
+    // Load admin stats
+    loadAdminStats();
+  }
+  
+  // Load admin dashboard statistics
+  async function loadAdminStats() {
+    try {
+      const response = await fetch(`${API_BASE}/admin/stats`);
+      if (response.ok) {
+        const stats = await response.json();
+        document.getElementById('total-users').textContent = stats.total_users || '-';
+        document.getElementById('total-products').textContent = stats.total_products || '-';
+        document.getElementById('total-orders').textContent = stats.total_orders || '-';
+        document.getElementById('total-revenue').textContent = formatPrice(stats.total_revenue || 0);
+      }
+    } catch (error) {
+      console.error('Error loading admin stats:', error);
+    }
+  }
+  
+  // Check admin access on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkAdminAccess);
+  } else {
+    checkAdminAccess();
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Jelajahi Produk - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+  <div class="breadcrumb">
+    <a href="/">Beranda</a> / <span>Semua Produk</span>
+  </div>
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span class="filter-label">Kategori:</span>
+      <select id="filter-cat" onchange="applyFilters()">
+        <option value="">Semua</option>
+        <option value="elektronik">Elektronik</option>
+        <option value="fashion">Fashion</option>
+        <option value="furniture">Furniture</option>
+        <option value="kendaraan">Kendaraan</option>
+        <option value="olahraga">Olahraga</option>
+        <option value="buku">Buku</option>
+        <option value="dapur">Dapur</option>
+        <option value="mainan">Mainan</option>
+        <option value="alat">Alat</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Kondisi:</span>
+      <select id="filter-cond" onchange="applyFilters()">
+        <option value="">Semua</option>
+        <option value="Sangat Baik">Sangat Baik</option>
+        <option value="Baik">Baik</option>
+        <option value="Cukup">Cukup</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Harga:</span>
+      <div class="price-range">
+        <input type="number" id="filter-min" placeholder="Min" oninput="applyFilters()" />
+        <span>–</span>
+        <input type="number" id="filter-max" placeholder="Max" oninput="applyFilters()" />
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Urutkan:</span>
+      <select id="filter-sort" onchange="applyFilters()">
+        <option value="newest">Terbaru</option>
+        <option value="price-asc">Harga Terendah</option>
+        <option value="price-desc">Harga Tertinggi</option>
+        <option value="rating">Rating</option>
+      </select>
+    </div>
+    <button class="btn btn-outline" onclick="resetFilters()">Reset</button>
+  </div>
+  <div class="results-count" id="results-count"></div>
+  <div class="product-grid" id="browse-grid"></div>
+</main>
+
+<script>
+  // Handle search query from URL - wait for products to load
+  async function initBrowse() {
+    const params = new URLSearchParams(window.location.search);
+    const searchQuery = params.get('search');
+    
+    // Wait for products to be loaded from API
+    if (products.length === 0) {
+      await loadProducts();
+    }
+    
+    if (searchQuery) {
+      const results = products.filter(p =>
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.seller && p.seller.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+      renderBrowse(results);
+      document.getElementById('results-count').textContent = `${results.length} hasil untuk "${searchQuery}"`;
+      document.getElementById('nav-search').value = searchQuery;
+    } else {
+      renderBrowse(products);
+    }
+  }
+  
+  // Call initBrowse when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBrowse);
+  } else {
+    initBrowse();
+  }
+</script>
+{% endblock %}

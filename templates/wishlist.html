@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Wishlist - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+<h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem">❤️ Wishlist</h2>
+<div class="product-grid" id="wishlist-grid"></div>
+</main>
+
+<script>
+  renderWishlist();
+</script>
+{% endblock %}

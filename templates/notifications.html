@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Notifikasi - ReBekas{% endblock %}
+
+{% block content %}
+<main>
+<h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem">🔔 Notifikasi</h2>
+<div class="notification-list" id="notification-list"></div>
+</main>
+
+<script>
+  renderNotifications();
+</script>
+{% endblock %}
