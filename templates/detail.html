@@ -37,68 +37,10 @@
         <div class="action-buttons">
           <button class="btn btn-primary btn-full" id="detail-cart-btn" onclick="addCurrentToCart()">🛒 Tambah ke Keranjang</button>
           <button class="btn btn-outline btn-full" id="detail-wishlist-btn" onclick="toggleWishlistCurrent()">❤️ Wishlist</button>
-          <button class="btn btn-outline btn-full" onclick="showToast('💬 Fitur chat tersedia di Sprint 2','')">💬 Chat Penjual</button>
+          <button class="btn btn-outline btn-full" id="detail-chat-btn">💬 Chat Penjual</button>
         </div>
       </div>
     </div>
   </div>
 </main>
-
-<script>
-  // Load detail para product ID yang dikirim dari Flask
-  async function initDetail() {
-    const productId = {{ product_id }};
-    
-    // Wait for products to be loaded from API
-    if (products.length === 0) {
-      await loadProducts();
-    }
-    
-    if (productId && products.length > 0) {
-      const p = products.find(x => x.id === productId);
-      if (p) {
-        // Populate detail info tanpa showPage()
-        document.getElementById('detail-img').textContent = EMOJIS[p.category] || '📦';
-        document.getElementById('detail-price').textContent = formatPrice(p.price);
-        document.getElementById('detail-title').textContent = p.title;
-        document.getElementById('detail-location').textContent = p.location;
-        document.getElementById('detail-condition').textContent = p.condition;
-        document.getElementById('detail-category').textContent = p.category.charAt(0).toUpperCase() + p.category.slice(1);
-        document.getElementById('detail-rating').textContent = `${p.rating} / 5.0`;
-        document.getElementById('detail-desc').textContent = p.desc;
-        document.getElementById('detail-breadcrumb').textContent = p.title.slice(0, 30) + '...';
-        const name = p.seller || 'Penjual';
-        document.getElementById('detail-seller-name').textContent = name;
-        document.getElementById('detail-seller-avatar').textContent = name[0].toUpperCase();
-        const badge = p.trusted ? '<span class="product-badge badge-trusted" style="position:static;display:inline-block;margin-right:6px">Trusted</span>' : '';
-        const freeShip = p.freeShip ? '<span class="product-badge badge-free" style="position:static;display:inline-block">Gratis Ongkir</span>' : '';
-        document.getElementById('detail-badge').innerHTML = badge + freeShip;
-        
-        currentProduct = p;
-        
-        // Update cart button state
-        const inCart = cart.find(x => x.id === productId);
-        const cartBtn = document.getElementById('detail-cart-btn');
-        cartBtn.textContent = inCart ? '✅ Sudah di Keranjang' : '🛒 Tambah ke Keranjang';
-        cartBtn.disabled = !!inCart;
-        
-        // Update wishlist button state
-        const wishlistBtn = document.getElementById('detail-wishlist-btn');
-        const inWishlist = wishlist.includes(productId);
-        wishlistBtn.textContent = inWishlist ? '❤️ Hapus dari Wishlist' : '🤍 Tambah ke Wishlist';
-        if (inWishlist) {
-          wishlistBtn.style.background = 'var(--primary)';
-          wishlistBtn.style.color = '#fff';
-        }
-      }
-    }
-  }
-  
-  // Call initDetail when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDetail);
-  } else {
-    initDetail();
-  }
-</script>
 {% endblock %}

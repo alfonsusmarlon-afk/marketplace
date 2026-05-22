@@ -10,7 +10,6 @@
 </head>
 <body>
 
-  <!-- NAVIGATION -->
   <nav>
     <div class="nav-inner">
       <a class="logo" href="/" style="cursor:pointer">
@@ -22,26 +21,33 @@
         <input type="text" id="nav-search" placeholder="Cari barang bekas..." oninput="handleNavSearch(this.value)" onkeydown="if(event.key==='Enter')goSearch()" />
       </div>
       <div class="nav-actions">
-        <button class="btn btn-outline cart-btn" onclick="showPage('cart')">
+        <button class="btn btn-outline cart-btn" id="nav-cart-btn" onclick="window.location.href='/cart'">
           🛒
           <span class="cart-count" id="cart-count">0</span>
         </button>
+        
         <div id="nav-auth">
           <button class="btn btn-outline" onclick="window.location.href='/login'">Masuk</button>
           <button class="btn btn-primary" onclick="window.location.href='/register'" style="margin-left:6px">Daftar</button>
         </div>
+        
         <div id="nav-user" style="display:none">
-          <button class="btn btn-accent" onclick="window.location.href='/upload'" style="margin-right:6px">+ Jual</button>
+          <button class="btn btn-accent" id="nav-jual-btn" onclick="window.location.href='/upload'" style="margin-right:6px">+ Jual</button>
           <div class="user-menu">
             <div class="user-avatar" id="user-avatar-btn" onclick="toggleDropdown()">A</div>
             <div class="user-dropdown" id="user-dropdown">
-              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/'">🏠 Beranda</div>
-              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/upload'">📦 Jual Barang</div>
-              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/wishlist'">❤️ Wishlist</div>
-              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/chat'">💬 Chat</div>
-              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/notifications'">🔔 Notifikasi</div>
-              <div class="dropdown-item" onclick="closeDropdown();window.location.href='/store'">🏪 Toko Saya</div>
-              <div class="dropdown-item" id="admin-menu-item" style="display:none" onclick="closeDropdown();window.location.href='/admin'">🛠 Dashboard Admin</div>
+              
+              <div style="padding: 14px 16px; border-bottom: 1px solid var(--gray-200); margin-bottom: 4px; background: var(--gray-50); cursor: default;">
+                <div id="dropdown-user-name" style="font-weight: 800; color: var(--gray-900); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Memuat...</div>
+                <div id="dropdown-user-role" style="font-size: 12px; font-weight: 600; color: var(--gray-500); margin-top: 4px;">Akun Reguler</div>
+              </div>
+              
+              <div class="dropdown-item" id="menu-jual" onclick="closeDropdown();window.location.href='/upload'">📦 Jual Barang</div>
+              <div class="dropdown-item" id="menu-wishlist" onclick="closeDropdown();window.location.href='/wishlist'">❤️ Wishlist</div>
+              <div class="dropdown-item" id="menu-chat" onclick="closeDropdown();window.location.href='/chat'">💬 Chat</div>
+              <div class="dropdown-item" id="menu-toko" onclick="closeDropdown();window.location.href='/store'">🏪 Toko Saya</div>
+              
+              <div class="dropdown-item" id="admin-menu-item" style="display:none; font-weight:700; color:var(--primary)" onclick="closeDropdown();window.location.href='/admin'">🛠 Dashboard Admin</div>
               <div class="dropdown-divider"></div>
               <div class="dropdown-item danger" onclick="logout()">🚪 Keluar</div>
             </div>
@@ -51,13 +57,10 @@
     </div>
   </nav>
 
-  <!-- MAIN CONTENT -->
   {% block content %}{% endblock %}
 
-  <!-- TOAST NOTIFICATION -->
   <div class="toast" id="toast"></div>
 
-  <!-- SCRIPTS -->
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
   {% block scripts %}{% endblock %}
 

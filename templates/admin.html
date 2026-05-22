@@ -4,56 +4,101 @@
 
 {% block content %}
 <main>
-<div id="admin-check"></div>
-<h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem">🛠 Dashboard Admin</h2>
-<div class="admin-cards">
-<div class="admin-card"><p>Total User</p><h3 id="total-users">-</h3></div>
-<div class="admin-card"><p>Total Produk</p><h3 id="total-products">-</h3></div>
-<div class="admin-card"><p>Total Transaksi</p><h3 id="total-orders">-</h3></div>
-<div class="admin-card"><p>Pendapatan</p><h3 id="total-revenue">Rp 0</h3></div>
+<div id="admin-auth-guard"></div>
+
+<div id="admin-content" style="display:none;">
+    <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem">📊 Dashboard Monitoring (Area Admin)</h2>
+    <p style="margin-bottom: 1.5rem; color: var(--gray-600);">Hanya Admin yang dapat memantau dan memvalidasi pesanan di halaman ini.</p>
+    
+    <div class="admin-cards">
+      <div class="admin-card"><p>Total User</p><h3 id="total-users">-</h3></div>
+      <div class="admin-card"><p>Total Produk</p><h3 id="total-products">-</h3></div>
+      <div class="admin-card"><p>Total Transaksi</p><h3 id="total-orders">-</h3></div>
+      <div class="admin-card"><p>Pendapatan (Lunas)</p><h3 id="total-revenue">Rp 0</h3></div>
+    </div>
+
+    <div style="margin-top:3rem; background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius); padding:1.5rem; overflow-x:auto;">
+        <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:1rem">🛠️ Verifikasi Pesanan</h2>
+        <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+            <thead>
+                <tr style="border-bottom:2px solid var(--gray-200); color: var(--gray-600);">
+                    <th style="padding:10px;">ID Pesanan</th>
+                    <th style="padding:10px;">Total Tagihan</th>
+                    <th style="padding:10px;">Status</th>
+                    <th style="padding:10px;">Aksi Admin</th>
+                </tr>
+            </thead>
+            <tbody id="admin-orders-list">
+            </tbody>
+        </table>
+    </div>
 </div>
 </main>
 
 <script>
-  // Check if user is admin
   function checkAdminAccess() {
-    if (!currentUser) {
-      document.getElementById('admin-check').innerHTML = '<div style="text-align:center;padding:2rem;background:#fff;border-radius:var(--radius);margin-bottom:2rem"><h3>Silakan masuk terlebih dahulu</h3><p>Admin dashboard hanya dapat diakses oleh pengguna yang sudah masuk.</p><button class="btn btn-primary" onclick="window.location.href=\'/login\'">Masuk</button></div>';
+    // Solusi: Ambil data secara instan dari memori untuk menghindari lambatnya loading database
+    const savedUser = localStorage.getItem('currentUser');
+    const user = savedUser ? JSON.parse(savedUser) : null;
+
+    if (!user || !user.is_admin) {
+      document.getElementById('admin-auth-guard').innerHTML = '<div style="text-align:center;padding:3rem;background:#fff;border-radius:var(--radius);"><h2>❌ Akses Ditolak</h2><p style="margin:1rem 0;">Halaman ini dikhususkan bagi Administrator.</p><button class="btn btn-primary" onclick="window.location.href=\'/\'">Kembali ke Beranda</button></div>';
+      document.getElementById('admin-content').style.display = 'none';
       return;
     }
     
-    if (!currentUser.is_admin) {
-      document.getElementById('admin-check').innerHTML = '<div style="text-align:center;padding:2rem;background:#fff;border-radius:var(--radius);margin-bottom:2rem"><h3>❌ Akses Ditolak</h3><p>Anda tidak memiliki izin untuk mengakses dashboard admin.</p><p>Hubungi administrator untuk informasi lebih lanjut.</p><button class="btn btn-primary" onclick="window.location.href=\'/\'">Kembali ke Beranda</button></div>';
-      document.querySelector('h2').style.display = 'none';
-      document.querySelector('.admin-cards').style.display = 'none';
-      return;
-    }
-    
-    // Load admin stats
+    // Jika lolos, tampilkan konten admin
+    document.getElementById('admin-content').style.display = 'block';
     loadAdminStats();
+    loadAllOrders();
   }
   
-  // Load admin dashboard statistics
   async function loadAdminStats() {
     try {
       const response = await fetch(`${API_BASE}/admin/stats`);
       if (response.ok) {
         const stats = await response.json();
-        document.getElementById('total-users').textContent = stats.total_users || '-';
-        document.getElementById('total-products').textContent = stats.total_products || '-';
-        document.getElementById('total-orders').textContent = stats.total_orders || '-';
-        document.getElementById('total-revenue').textContent = formatPrice(stats.total_revenue || 0);
+        document.getElementById('total-users').textContent = stats.total_users;
+        document.getElementById('total-products').textContent = stats.total_products;
+        document.getElementById('total-orders').textContent = stats.total_orders;
+        document.getElementById('total-revenue').textContent = formatPrice(stats.total_revenue);
       }
-    } catch (error) {
-      console.error('Error loading admin stats:', error);
-    }
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadAllOrders() {
+    try {
+        const response = await fetch(`${API_BASE}/admin/orders`);
+        if (response.ok) {
+            const orders = await response.json();
+            const list = document.getElementById('admin-orders-list');
+            if (orders.length === 0) { list.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Belum ada pesanan masuk</td></tr>'; return; }
+            
+            list.innerHTML = orders.map(o => `
+                <tr style="border-bottom:1px solid var(--gray-100);">
+                    <td style="padding:15px 10px; font-weight:600;">#ORD-${o.id}</td>
+                    <td style="padding:15px 10px; font-weight:bold; color:var(--primary);">${formatPrice(o.total_price)}</td>
+                    <td style="padding:15px 10px;">
+                        <span class="product-badge ${o.status === 'pending' ? 'badge-needed' : 'badge-trusted'}" style="position:static;">${o.status.toUpperCase()}</span>
+                    </td>
+                    <td style="padding:15px 10px;">
+                        ${o.status === 'pending' 
+                        ? `<button class="btn btn-primary" style="padding:6px 12px; font-size:12px;" onclick="processOrder(${o.id}, 'lunas')">✅ Verifikasi Lunas</button>` 
+                        : `<span style="color:var(--success); font-weight:700;">Pesanan Diproses</span>`}
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch(e) { console.error(e); }
+  }
+
+  async function processOrder(orderId, newStatus) {
+    await fetch(`${API_BASE}/admin/orders/${orderId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+    showToast('✅ Pesanan diverifikasi', 'success');
+    loadAllOrders(); loadAdminStats();
   }
   
-  // Check admin access on page load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', checkAdminAccess);
-  } else {
-    checkAdminAccess();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', checkAdminAccess);
+  else checkAdminAccess();
 </script>
 {% endblock %}
