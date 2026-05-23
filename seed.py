@@ -1,12 +1,12 @@
 from app import app
 from models import db, User, Product
 from werkzeug.security import generate_password_hash
-import os
-
-if os.path.exists("marketplace.db"):
-    os.remove("marketplace.db")
 
 with app.app_context():
+    print("Mereset tabel database...")
+    db.drop_all()  # Menghapus tabel lama tanpa menghapus file
+    
+    print("Membangun ulang struktur...")
     db.create_all()
 
     # 1. AKUN ADMIN
@@ -20,7 +20,7 @@ with app.app_context():
     db.session.commit()
 
     # Masukkan 1 barang otomatis untuk penjual
-    p1 = Product(title='Laptop Bekas Mulus', description='Jarang pakai.', price=2500000, category='elektronik', condition='Sangat Baik', location='Surabaya', seller_id=seller.id)
+    p1 = Product(title='Laptop Bekas Mulus', description='Jarang pakai, masih sangat mulus.', price=2500000, category='elektronik', condition='Sangat Baik', location='Surabaya', seller_id=seller.id)
     db.session.add(p1)
     db.session.commit()
 

@@ -49,10 +49,10 @@ def store(): return render_template('store.html')
 @app.route('/admin')
 def admin(): return render_template('admin.html')
 
-# HALAMAN BARU: Pesanan Pembeli
 @app.route('/orders')
 def orders_page(): return render_template('orders.html')
 
+# ===== API ROUTES =====
 @app.route('/api/products', methods=['GET'])
 def get_products():
     lunas_orders = Order.query.filter(Order.status.in_(['lunas', 'verifikasi_kirim', 'dikirim', 'verifikasi_terima', 'selesai'])).all()
@@ -60,13 +60,24 @@ def get_products():
     products = Product.query.all()
     return jsonify([p.to_dict() for p in products if p.id not in sold_product_ids])
 
-@app.route('/api/products/<int:product_id>', methods=['GET', 'PUT'])
+@app.route('/api/products/<int:product_id>', methods=['GET', 'PUT', 'DELETE'])
 def handle_product(product_id):
     product = Product.query.get_or_404(product_id)
+    
     if request.method == 'PUT':
         data = request.get_json()
-        product.title, product.price, product.description = data.get('title', product.title), data.get('price', product.price), data.get('description', product.description)
+        product.title = data.get('title', product.title)
+        product.price = data.get('price', product.price)
+        product.category = data.get('category', product.category)
+        product.condition = data.get('condition', product.condition)
+        product.description = data.get('description', product.description)
         db.session.commit()
+        
+    elif request.method == 'DELETE':
+        db.session.delete(product)
+        db.session.commit()
+        return jsonify({'status': 'deleted'})
+        
     return jsonify(product.to_dict())
 
 @app.route('/api/products', methods=['POST'])
@@ -91,17 +102,8 @@ def get_store_dashboard(seller_id):
                     if order.status == 'selesai': total_revenue += item.price
                     break
             if status == 'Terjual': break
-        items_data.append({'id': p.id, 'title': p.title, 'price': p.price, 'status': status, 'order_status': order_status, 'order_id': order_id})
+        items_data.append({'id': p.id, 'title': p.title, 'price': p.price, 'category': p.category, 'condition': p.condition, 'desc': p.description, 'status': status, 'order_status': order_status, 'order_id': order_id})
     return jsonify({'items': items_data, 'total_revenue': total_revenue})
-
-@app.route('/api/auth/register', methods=['POST'])
-def register_user():
-    data = request.get_json()
-    if User.query.filter_by(email=data['email']).first(): return jsonify({'error': 'Email terdaftar'}), 400
-    user = User(name=data['name'], email=data['email'], password=generate_password_hash(data['password']), avatar=data['name'][0].upper())
-    db.session.add(user)
-    db.session.commit()
-    return jsonify(user.to_dict()), 201
 
 @app.route('/api/auth/login', methods=['POST'])
 def login_user():
@@ -132,6 +134,12 @@ def add_wishlist():
         db.session.add(WishlistItem(user_id=data['user_id'], product_id=data['product_id']))
         db.session.commit()
     return '', 201
+@app.route('/api/wishlist', methods=['DELETE'])
+def remove_wishlist():
+    data = request.get_json()
+    item = WishlistItem.query.filter_by(user_id=data['user_id'], product_id=data['product_id']).first()
+    if item: db.session.delete(item); db.session.commit()
+    return '', 204
 
 @app.route('/api/orders', methods=['POST'])
 def create_order():
@@ -147,7 +155,6 @@ def create_order():
 def get_buyer_orders(buyer_id):
     return jsonify([o.to_dict() for o in Order.query.filter_by(user_id=buyer_id).order_by(Order.created_at.desc()).all()])
 
-# API UPLOAD BUKTI (BASE64)
 @app.route('/api/orders/<int:order_id>/proof', methods=['PUT'])
 def upload_order_proof(order_id):
     data = request.get_json()
@@ -176,11 +183,50 @@ def update_order_status(order_id):
     db.session.commit()
     return jsonify(order.to_dict())
 
-# API ADMIN MEMANTAU SEMUA CHAT USER
-@app.route('/api/admin/all_chats', methods=['GET'])
-def get_all_system_chats():
-    msgs = Message.query.order_by(Message.created_at.desc()).limit(100).all()
-    return jsonify([m.to_dict() for m in msgs])
+# API ADMIN MEMANTAU ALL CHAT (DIRENGKAS BERDASARKAN PASANGAN)
+@app.route('/api/admin/chat_pairs', methods=['GET'])
+def get_chat_pairs():
+    messages = Message.query.order_by(Message.created_at.asc()).all()
+    pairs = {}
+    for m in messages:
+        # Buat key unik tidak peduli siapa yang mengirim duluan (misal: "2-3")
+        id_a, id_b = min(m.sender_id, m.recipient_id), max(m.sender_id, m.recipient_id)
+        pair_key = f"{id_a}-{id_b}"
+        
+        if pair_key not in pairs:
+            user_a = User.query.get(id_a)
+            user_b = User.query.get(id_b)
+            pairs[pair_key] = {
+                'user1_id': id_a, 'user1_name': user_a.name if user_a else 'Unknown',
+                'user2_id': id_b, 'user2_name': user_b.name if user_b else 'Unknown',
+                'last_message': m.content, 'timestamp': m.created_at.isoformat()
+            }
+        else:
+            pairs[pair_key]['last_message'] = m.content
+            pairs[pair_key]['timestamp'] = m.created_at.isoformat()
+            
+    return jsonify(list(pairs.values()))
+
+# API ADMIN UNTUK PREVIEW DETAIL CHAT TERTENTU
+@app.route('/api/admin/chat_detail', methods=['GET'])
+def get_chat_detail():
+    u1 = request.args.get('user1', type=int)
+    u2 = request.args.get('user2', type=int)
+    messages = Message.query.filter(
+        ((Message.sender_id == u1) & (Message.recipient_id == u2)) |
+        ((Message.sender_id == u2) & (Message.recipient_id == u1))
+    ).order_by(Message.created_at.asc()).all()
+    return jsonify([m.to_dict() for m in messages])
+
+# API UNTUK ADMIN CHAT LANGSUNG KE USER
+@app.route('/api/admin/send_as_admin', methods=['POST'])
+def send_as_admin():
+    data = request.get_json()
+    # Pastikan admin mengirim pesan sebagai perwakilan dari ID Sistem Admin (ID: 1)
+    msg = Message(sender_id=1, recipient_id=data['recipient_id'], content=data['content'])
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify(msg.to_dict())
 
 @app.route('/api/messages', methods=['POST'])
 def send_message():

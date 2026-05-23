@@ -13,9 +13,9 @@ echo Starting Flask server at http://localhost:5000
 echo Press Ctrl+C to stop the server
 echo.
 echo Demo accounts (untuk testing):
-echo - budi@example.com / password123
-echo - dewi@example.com / password123
-echo - toko@example.com / password123
+echo - Admin   : admin@example.com  (Pass: 123456)
+echo - Penjual : seller@example.com   (Pass: 123456)
+echo - Pembeli : buyer@example.com    (Pass: 123456)
 echo.
 python app.py
 pause

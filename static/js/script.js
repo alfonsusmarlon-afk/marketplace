@@ -2,6 +2,7 @@ const EMOJIS = { elektronik: '📱', fashion: '👗', furniture: '🪑', kendara
 const API_BASE = '/api';
 
 let products = [], cart = [], currentProduct = null, currentUser = null, activeCategory = 'all', wishlist = [];
+window.wishlistItems = [];
 
 function formatPrice(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
 
@@ -57,7 +58,6 @@ function goSearch(q) {
   else renderBrowse(products.filter(p => p.title.toLowerCase().includes(query.toLowerCase()) || p.category.toLowerCase().includes(query.toLowerCase())));
 }
 
-// ===== CART & ORDER LOGIC =====
 async function addCurrentToCart() {
   if (!currentProduct) return;
   if (!currentUser) { showToast('Silakan masuk', ''); window.location.href = '/login'; return; }
@@ -76,22 +76,38 @@ function renderCart() {
   document.getElementById('cart-qty').textContent = cart.length; document.getElementById('cart-total').textContent = document.getElementById('cart-subtotal').textContent = formatPrice(cart.reduce((s,p) => s + p.price, 0));
 }
 async function loadUserCart(userId) {
-  try { const res = await fetch(`${API_BASE}/cart/${userId}`); const items = await res.json(); cart = items.map(i => { const p = products.find(x => x.id === i.product_id); return p ? { ...p, cartItemId: i.id } : null; }).filter(p => p); document.getElementById('cart-count').textContent = cart.length; } catch (e) {}
+  try { const res = await fetch(`${API_BASE}/cart/${userId}`); const items = await res.json(); cart = items.map(i => i.product ? { ...i.product, cartItemId: i.id } : null).filter(p => p); document.getElementById('cart-count').textContent = cart.length; } catch (e) {}
 }
 function removeCart(id) { const i = cart.find(p => p.id === id); if (i && i.cartItemId) fetch(`${API_BASE}/cart/${i.cartItemId}`, { method: 'DELETE' }); cart = cart.filter(p => p.id !== id); document.getElementById('cart-count').textContent = cart.length; renderCart(); }
+
 async function checkout() {
   if (!currentUser || currentUser.is_admin || !cart.length) return;
-  try { await fetch(`${API_BASE}/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, total_price: cart.reduce((s,p) => s + p.price, 0), items: cart.map(i => ({ product_id: i.id, quantity: 1, price: i.price })) }) }); cart = []; showToast('🎉 Berhasil dipesan!', 'success'); setTimeout(() => window.location.href = '/orders', 1500); } catch(e) {}
+  try { await fetch(`${API_BASE}/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, total_price: cart.reduce((s,p) => s + p.price, 0), items: cart.map(i => ({ product_id: i.id, quantity: 1, price: i.price })) }) }); cart = []; showToast('Arahkan ke Pembayaran', 'success'); setTimeout(() => window.location.href = '/payment', 1000); } catch(e) {}
+}
+// DI PANGGIL DARI payment.html 
+function completePayment() {
+    showToast('✅ Transfer Dikonfirmasi. Menunggu Validasi Admin.', 'success');
+    setTimeout(() => { window.location.href = '/orders'; }, 1500);
 }
 
-// ===== WISHLIST & UPLOAD =====
-async function loadUserWishlist(userId) { try { const res = await fetch(`${API_BASE}/wishlist/${userId}`); wishlist = (await res.json()).map(i => i.product_id); } catch(e) {} }
+async function loadUserWishlist(userId) { try { const res = await fetch(`${API_BASE}/wishlist/${userId}`); const items = await res.json(); wishlist = items.map(i => i.product_id); window.wishlistItems = items.map(i => i.product).filter(p => p); } catch(e) {} }
+function renderWishlist() {
+  const grid = document.getElementById('wishlist-grid'); if(!grid) return;
+  grid.innerHTML = (!window.wishlistItems || window.wishlistItems.length === 0) ? '<div class="empty-state" style="grid-column:1/-1"><div class="empty-text">Wishlist Anda kosong</div></div>' : window.wishlistItems.map(p => makeCard(p)).join('');
+}
 async function toggleWishlistCurrent() {
   if (!currentUser || currentUser.is_admin) return;
-  const p = currentProduct.id;
-  if(wishlist.includes(p)) { wishlist = wishlist.filter(x => x !== p); showToast('💔 Dihapus', ''); } 
-  else { await fetch(`${API_BASE}/wishlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, product_id: p }) }); wishlist.push(p); showToast('❤️ Disimpan','success'); }
+  const pId = currentProduct.id;
+  if(wishlist.includes(pId)) { 
+      await fetch(`${API_BASE}/wishlist`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, product_id: pId }) });
+      wishlist = wishlist.filter(x => x !== pId); if (window.wishlistItems) window.wishlistItems = window.wishlistItems.filter(p => p.id !== pId); showToast('💔 Dihapus', ''); 
+  } else { 
+      await fetch(`${API_BASE}/wishlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, product_id: pId }) }); 
+      wishlist.push(pId); if (currentProduct) window.wishlistItems.push(currentProduct); showToast('❤️ Disimpan','success'); 
+  }
+  if (window.location.pathname === '/wishlist') renderWishlist();
 }
+
 async function submitProduct() {
   if (!currentUser || currentUser.is_admin) return;
   const title = document.getElementById('up-title').value.trim(), price = document.getElementById('up-price').value, cat = document.getElementById('up-cat').value, cond = document.getElementById('up-cond').value, loc = document.getElementById('up-loc').value.trim(), desc = document.getElementById('up-desc').value.trim();
@@ -100,24 +116,34 @@ async function submitProduct() {
   showToast('✅ Diupload!', 'success'); setTimeout(() => window.location.href = '/', 1200);
 }
 
-// ===== AUTH =====
 async function loginEmail() {
-  const email = document.getElementById('login-email').value, password = document.getElementById('login-pass').value;
-  try { const res = await fetch(`${API_BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); if (!res.ok) throw new Error(); localStorage.setItem('currentUser', JSON.stringify(await res.json())); window.location.href = '/'; } catch (e) { showToast('Login Gagal', ''); }
+  const email = document.getElementById('login-email').value.trim(), password = document.getElementById('login-pass').value.trim();
+  if(!email || !password) { showToast('Isi semua field', ''); return; }
+  try { 
+      const res = await fetch(`${API_BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }); 
+      if (!res.ok) throw new Error(); 
+      localStorage.setItem('currentUser', JSON.stringify(await res.json())); 
+      window.location.href = '/'; 
+  } catch (e) { showToast('Login Gagal, periksa kembali.', ''); }
 }
 async function registerEmail() {
-  const name = document.getElementById('reg-name').value, email = document.getElementById('reg-email').value, password = document.getElementById('reg-pass').value;
-  try { const res = await fetch(`${API_BASE}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) }); if (!res.ok) throw new Error(); localStorage.setItem('currentUser', JSON.stringify(await res.json())); window.location.href = '/'; } catch (e) { showToast('Gagal', ''); }
+  const name = document.getElementById('reg-name').value.trim(), email = document.getElementById('reg-email').value.trim(), password = document.getElementById('reg-pass').value.trim();
+  if(!name || !email || !password) { showToast('Isi semua field', ''); return; }
+  try { 
+      const res = await fetch(`${API_BASE}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) }); 
+      if (!res.ok) throw new Error(); 
+      localStorage.setItem('currentUser', JSON.stringify(await res.json())); 
+      window.location.href = '/'; 
+  } catch (e) { showToast('Gagal Mendaftar', ''); }
 }
 function logout() { localStorage.removeItem('currentUser'); window.location.href = '/'; }
 
-// UTILS
 function showToast(msg, type) { const t = document.getElementById('toast'); if(!t) return; t.textContent = msg; t.className = 'toast show ' + (type === 'success' ? 'toast-success' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
 function toggleDropdown() { document.getElementById('user-dropdown')?.classList.toggle('open'); }
 function closeDropdown() { document.getElementById('user-dropdown')?.classList.remove('open'); }
 document.addEventListener('click', e => { if (!e.target.closest('.user-menu')) closeDropdown(); });
 
-// ===== STORE (SELLER) =====
+// ===== SELLER DASHBOARD (EDIT LENGKAP) =====
 async function loadStoreDashboard() {
   if (!currentUser || currentUser.is_admin) return;
   try {
@@ -128,8 +154,11 @@ async function loadStoreDashboard() {
       
       list.innerHTML = data.items.map(i => {
           let btn = '-';
-          if (i.status === 'Tersedia') btn = '<span style="color:var(--gray-500)">Belum Laku</span>';
-          else if (i.order_status === 'pending') btn = '<span style="color:var(--accent)">Menunggu Pembeli Bayar</span>';
+          const canEdit = (i.status === 'Tersedia') || (i.status === 'Terjual' && i.order_status === 'pending');
+          const cleanDesc = i.desc ? i.desc.replace(/"/g, '&quot;') : ''; // Cegah error petik
+          
+          if (i.status === 'Tersedia') btn = `<button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="openEditModal(${i.id}, '${i.title}', ${i.price}, '${i.category}', '${i.condition}', '${cleanDesc}')">✏️ Edit Lengkap</button>`;
+          else if (i.order_status === 'pending') btn = `<button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="openEditModal(${i.id}, '${i.title}', ${i.price}, '${i.category}', '${i.condition}', '${cleanDesc}')">✏️ Edit Lengkap</button> <div style="font-size:11px;color:var(--accent);margin-top:4px">Belum dibayar</div>`;
           else if (i.order_status === 'lunas') btn = `<button class="btn btn-primary" style="padding:6px 10px; font-size:12px;" onclick="openProofModal(${i.order_id}, 'shipping')">Upload Resi Kirim</button>`;
           else if (i.order_status === 'verifikasi_kirim') btn = '⏳ Menunggu Admin ACC Kiriman';
           else if (i.order_status === 'dikirim') btn = '🚚 Sedang Dikirim';
@@ -146,6 +175,35 @@ async function loadStoreDashboard() {
   } catch(e) {}
 }
 
+function openEditModal(id, title, price, cat, cond, desc) {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-title').value = title;
+    document.getElementById('edit-price').value = price;
+    document.getElementById('edit-cat').value = cat || 'elektronik';
+    document.getElementById('edit-cond').value = cond || 'Sangat Baik';
+    document.getElementById('edit-desc').value = desc === 'None' ? '' : desc;
+    document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
+
+async function saveEditProduct() {
+    const id = document.getElementById('edit-id').value;
+    const title = document.getElementById('edit-title').value.trim();
+    const price = document.getElementById('edit-price').value;
+    const category = document.getElementById('edit-cat').value;
+    const condition = document.getElementById('edit-cond').value;
+    const description = document.getElementById('edit-desc').value.trim();
+    
+    if (!title || !price || !description) { showToast('Lengkapi field wajib!', ''); return; }
+    try {
+        await fetch(`${API_BASE}/products/${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, price: parseInt(price), category, condition, description })
+        });
+        showToast('✅ Berhasil Diupdate!', 'success'); closeEditModal(); loadStoreDashboard();
+    } catch(e) { showToast('Gagal', ''); }
+}
+
 // ===== ORDERS (BUYER) =====
 async function loadBuyerOrders() {
   if (!currentUser || currentUser.is_admin) return;
@@ -153,31 +211,22 @@ async function loadBuyerOrders() {
       const res = await fetch(`${API_BASE}/orders/buyer/${currentUser.id}`); const orders = await res.json();
       const list = document.getElementById('buyer-orders-list'); if (!list) return;
       if (!orders.length) { list.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem;">Belum ada pesanan.</td></tr>'; return; }
-      
       list.innerHTML = orders.map(o => {
           let btn = '-';
-          if (o.status === 'pending') btn = '⏳ Admin Mengecek Pembayaran';
-          else if (o.status === 'lunas') btn = '⏳ Penjual Sedang Mengemas';
+          if (o.status === 'pending') btn = '⏳ Menunggu Validasi Bayar Admin';
+          else if (o.status === 'lunas') btn = '⏳ Penjual Mengemas';
           else if (o.status === 'verifikasi_kirim') btn = '📦 Proses Kirim';
-          else if (o.status === 'dikirim') btn = `<button class="btn btn-accent" style="padding:6px 10px; font-size:12px;" onclick="openProofModal(${o.id}, 'receipt')">Upload Foto Terima</button>`;
+          else if (o.status === 'dikirim') btn = `<button class="btn btn-accent" style="padding:6px 10px; font-size:12px;" onclick="openProofModal(${o.id}, 'receipt')">Konfirmasi Terima</button>`;
           else if (o.status === 'verifikasi_terima') btn = '⏳ Admin Mengecek Foto Terima';
           else if (o.status === 'selesai') btn = '✅ Selesai';
-
-          return `
-          <tr style="border-bottom:1px solid var(--gray-200);">
-              <td style="padding:15px; font-weight:bold;">#ORD-${o.id}</td><td style="padding:15px; color:var(--primary); font-weight:bold;">${formatPrice(o.total_price)}</td>
-              <td style="padding:15px;"><span class="product-badge badge-trusted" style="position:static;">${o.status.toUpperCase()}</span></td>
-              <td style="padding:15px;">${btn}</td>
-          </tr>`;
+          return `<tr style="border-bottom:1px solid var(--gray-200);"><td style="padding:15px; font-weight:bold;">#ORD-${o.id}</td><td style="padding:15px; color:var(--primary); font-weight:bold;">${formatPrice(o.total_price)}</td><td style="padding:15px;"><span class="product-badge badge-trusted" style="position:static;">${o.status.toUpperCase()}</span></td><td style="padding:15px;">${btn}</td></tr>`;
       }).join('');
   } catch(e) {}
 }
 
-// ===== FOTO UPLOAD LOGIC (BASE64) =====
 let tempProofBase64 = '';
 function openProofModal(orderId, type) {
-    document.getElementById('proof-order-id').value = orderId;
-    document.getElementById('proof-type').value = type;
+    document.getElementById('proof-order-id').value = orderId; document.getElementById('proof-type').value = type;
     document.getElementById('proof-modal-title').textContent = type === 'shipping' ? 'Upload Bukti Resi / Pengiriman' : 'Upload Bukti Barang Diterima';
     document.getElementById('proof-preview').src = ''; document.getElementById('proof-preview').style.display = 'none';
     tempProofBase64 = ''; document.getElementById('proof-modal').style.display = 'flex';
@@ -193,43 +242,33 @@ async function submitProof() {
     if(!tempProofBase64) { showToast('Pilih foto dulu!', ''); return; }
     try {
         await fetch(`${API_BASE}/orders/${id}/proof`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: type, image: tempProofBase64 }) });
-        document.getElementById('proof-modal').style.display = 'none';
-        showToast('✅ Bukti berhasil dikirim ke Admin!', 'success');
+        document.getElementById('proof-modal').style.display = 'none'; showToast('✅ Terkirim ke Admin!', 'success');
         if(type==='shipping') loadStoreDashboard(); else loadBuyerOrders();
-    } catch(e) { showToast('Gagal upload', ''); }
+    } catch(e) { showToast('Gagal', ''); }
 }
 
 // ===== REALTIME CHAT =====
 let activeChatPartner = null, activeChatName = "", lastMessageCount = 0;
-
 async function checkUnread() {
     if (!currentUser || currentUser.is_admin) return;
     try {
         const res = await fetch(`${API_BASE}/messages/unread/${currentUser.id}`);
-        const data = await res.json();
-        const badge = document.getElementById('nav-chat-badge');
-        if (badge) {
-            if (data.unread_count > 0) { badge.textContent = data.unread_count; badge.style.display = 'inline-block'; } 
-            else { badge.style.display = 'none'; }
-        }
+        const data = await res.json(); const badge = document.getElementById('nav-chat-badge');
+        if (badge) { if (data.unread_count > 0) { badge.textContent = data.unread_count; badge.style.display = 'inline-block'; } else badge.style.display = 'none'; }
     } catch(e) {}
 }
-
 async function loadChatMessages(isAutoRefresh = false) {
   if (!currentUser || currentUser.is_admin) return;
   const box = document.getElementById('chat-box'); if(!box) return;
-
   const params = new URLSearchParams(window.location.search);
   if (params.get('to') && params.get('to') !== 'undefined' && !activeChatPartner) { activeChatPartner = parseInt(params.get('to')); activeChatName = params.get('name') || "Pengguna"; }
 
   try {
       const res = await fetch(`${API_BASE}/messages/${currentUser.id}`); const messages = await res.json();
       let contactsMap = new Map(); if (activeChatPartner) contactsMap.set(activeChatPartner, activeChatName);
-      
       messages.forEach(m => {
           const isMe = m.sender_id === currentUser.id;
-          const partnerId = isMe ? m.recipient_id : m.sender_id;
-          const partnerName = isMe ? m.recipient_name : m.sender_name;
+          const partnerId = isMe ? m.recipient_id : m.sender_id, partnerName = isMe ? m.recipient_name : m.sender_name;
           if (partnerId && partnerId !== currentUser.id && !contactsMap.has(partnerId)) contactsMap.set(partnerId, partnerName);
       });
 
@@ -238,22 +277,17 @@ async function loadChatMessages(isAutoRefresh = false) {
           if (list) {
               list.innerHTML = contactsMap.size === 0 ? '<div style="padding:15px; text-align:center;">Kosong</div>' : Array.from(contactsMap).map(([id, name]) => {
                   const unread = messages.filter(x => x.sender_id === id && x.recipient_id === currentUser.id && !x.is_read).length;
-                  const badgeHtml = unread > 0 ? `<span style="background:var(--accent); color:#fff; border-radius:50%; font-size:10px; width:18px; height:18px; display:flex; justify-content:center; align-items:center;">${unread}</span>` : '';
                   return `<div onclick="switchChatPartner(${id}, '${name}')" style="padding:12px 15px; border-bottom:1px solid var(--gray-200); cursor:pointer; display:flex; justify-content:space-between; background:${id === activeChatPartner ? 'var(--primary-light)' : 'transparent'};">
-                      <div style="display:flex; align-items:center; gap:10px;"><div style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;">${name[0].toUpperCase()}</div><div style="font-weight:700;">${name}</div></div>${badgeHtml}
+                      <div style="display:flex; align-items:center; gap:10px;"><div style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;">${name[0].toUpperCase()}</div><div style="font-weight:700;">${name}</div></div>${unread > 0 ? `<span style="background:var(--accent); color:#fff; border-radius:50%; font-size:10px; width:18px; height:18px; display:flex; justify-content:center; align-items:center;">${unread}</span>` : ''}
                   </div>`;
               }).join('');
           }
       }
 
       if (activeChatPartner) {
-          await fetch(`${API_BASE}/messages/read`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: currentUser.id, partner_id: activeChatPartner }) });
-          if(!isAutoRefresh) checkUnread();
-          
-          document.getElementById('chat-header-name').textContent = activeChatName;
-          document.getElementById('chat-header-avatar').textContent = activeChatName[0].toUpperCase();
+          await fetch(`${API_BASE}/messages/read`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: currentUser.id, partner_id: activeChatPartner }) }); if(!isAutoRefresh) checkUnread();
+          document.getElementById('chat-header-name').textContent = activeChatName; document.getElementById('chat-header-avatar').textContent = activeChatName[0].toUpperCase();
           document.getElementById('chat-input').disabled = false; document.getElementById('chat-send-btn').disabled = false;
-
           const thread = messages.filter(m => (m.sender_id === currentUser.id && m.recipient_id === activeChatPartner) || (m.sender_id === activeChatPartner && m.recipient_id === currentUser.id));
           if (thread.length !== lastMessageCount || !isAutoRefresh) {
               box.innerHTML = thread.length === 0 ? '<div style="text-align:center; margin-top:20%;">Mulai ngobrol!</div>' : thread.map(m => `<div style="max-width:75%; padding:10px 15px; border-radius:15px; margin-bottom:10px; ${m.sender_id === currentUser.id ? 'background:var(--primary); color:#fff; align-self:flex-end;' : 'background:var(--gray-100); align-self:flex-start;'}">${m.content}</div>`).join('');
@@ -262,7 +296,6 @@ async function loadChatMessages(isAutoRefresh = false) {
       }
   } catch(e) {}
 }
-
 function switchChatPartner(id, name) { activeChatPartner = id; activeChatName = name; lastMessageCount = 0; window.history.pushState({}, '', window.location.pathname); loadChatMessages(); }
 async function sendMessage() {
   const i = document.getElementById('chat-input'); if(!i.value.trim() || !activeChatPartner) return;
@@ -270,9 +303,8 @@ async function sendMessage() {
   i.value = ''; loadChatMessages(true);
 }
 
-// ===== INIT ROUTER =====
-async function initApp() {
-  await loadProducts();
+// ===== ROUTER =====
+async function initLoginState() {
   const savedUser = localStorage.getItem('currentUser');
   if (savedUser) {
     currentUser = JSON.parse(savedUser);
@@ -285,30 +317,46 @@ async function initApp() {
         ['nav-cart-btn','nav-jual-btn','menu-jual','menu-wishlist','menu-chat','menu-toko', 'menu-orders'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
         if(document.getElementById('admin-menu-item')) document.getElementById('admin-menu-item').style.display = 'block';
     } else {
-        await loadUserCart(currentUser.id); await loadUserWishlist(currentUser.id);
-        checkUnread(); setInterval(checkUnread, 3000);
+        ['nav-cart-btn','nav-jual-btn','menu-jual','menu-wishlist','menu-chat','menu-toko', 'menu-orders'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = ''; });
+        if(document.getElementById('admin-menu-item')) document.getElementById('admin-menu-item').style.display = 'none';
+        
+        await loadUserCart(currentUser.id); await loadUserWishlist(currentUser.id); checkUnread(); setInterval(checkUnread, 3000);
     }
   }
-  
-  const path = window.location.pathname;
+}
+
+async function initApp() {
+  await loadProducts(); await initLoginState(); const path = window.location.pathname;
   if (path === '/' || path === '/home') renderHome();
   else if (path === '/browse') {
     const q = new URLSearchParams(window.location.search).get('search');
     if (q) { document.getElementById('nav-search').value = q; renderBrowse(products.filter(p => p.title.toLowerCase().includes(q.toLowerCase()))); } else renderBrowse(products);
   } else if (path.startsWith('/detail/')) {
-    const p = products.find(x => x.id === parseInt(path.split('/').pop()));
-    if (p) {
-       currentProduct = p;
-       ['img','price','title','location','condition','category','rating','desc','seller-name'].forEach(k => { if(document.getElementById(`detail-${k}`)) document.getElementById(`detail-${k}`).textContent = p[k] || p[k.replace('-name','')]; });
-       document.getElementById('detail-img').textContent = EMOJIS[p.category] || '📦'; document.getElementById('detail-price').textContent = formatPrice(p.price); document.getElementById('detail-seller-avatar').textContent = (p.seller||'P')[0].toUpperCase();
-       
-       if (currentUser && currentUser.is_admin) {
-           ['detail-cart-btn','detail-wishlist-btn','detail-chat-btn'].forEach(id => { const b=document.getElementById(id); if(b){b.disabled=true;b.textContent='🔒 Area Admin';} });
-       } else if (document.getElementById('detail-chat-btn')) document.getElementById('detail-chat-btn').onclick = () => window.location.href = `/chat?to=${p.seller_id}&name=${p.seller}`;
-    }
-  } else if (path === '/chat' && currentUser && !currentUser.is_admin) {
-      loadChatMessages(); setInterval(() => loadChatMessages(true), 2500);
-  }
+    const id = parseInt(path.split('/').pop());
+    try {
+        const res = await fetch(`${API_BASE}/products/${id}`); if (!res.ok) throw new Error();
+        const p = await res.json(); currentProduct = p;
+        ['img','price','title','location','condition','category','rating','desc','seller-name'].forEach(k => { if(document.getElementById(`detail-${k}`)) document.getElementById(`detail-${k}`).textContent = p[k] || p[k.replace('-name','')]; });
+        document.getElementById('detail-img').textContent = EMOJIS[p.category] || '📦'; document.getElementById('detail-price').textContent = formatPrice(p.price); document.getElementById('detail-seller-avatar').textContent = (p.seller||'P')[0].toUpperCase();
+        
+        // PEMBATASAN UNTUK PENJUAL (TIDAK BISA BELI/WISHLIST/CHAT BARANG SENDIRI)
+        if (currentUser && currentUser.is_admin) { 
+            ['detail-cart-btn','detail-wishlist-btn','detail-chat-btn'].forEach(btnId => { const b=document.getElementById(btnId); if(b){b.disabled=true; b.textContent='🔒 Area Admin';} }); 
+        } else if (currentUser && (currentUser.id === p.seller_id || currentUser.name === p.seller)) {
+            ['detail-cart-btn','detail-wishlist-btn','detail-chat-btn'].forEach(btnId => { 
+                const b = document.getElementById(btnId); 
+                if(b) { b.disabled = true; b.style.background = 'var(--gray-200)'; b.style.color = 'var(--gray-500)'; b.style.borderColor = 'var(--gray-300)'; b.textContent = '🔒 Barang Anda Sendiri'; } 
+            });
+        } else if (document.getElementById('detail-chat-btn')) {
+            document.getElementById('detail-chat-btn').onclick = () => {
+                if (!currentUser) { showToast('Silakan masuk', ''); window.location.href='/login'; return; }
+                window.location.href = `/chat?to=${p.seller_id}&name=${encodeURIComponent(p.seller)}`;
+            };
+        }
+    } catch(e) { showToast('Barang tidak tersedia', ''); setTimeout(() => window.location.href='/', 1500); }
+  } else if (path === '/cart') { if (!currentUser || currentUser.is_admin) window.location.href = '/'; else renderCart(); }
+  else if (path === '/wishlist') { if (!currentUser || currentUser.is_admin) window.location.href = '/'; else renderWishlist(); }
+  else if (path === '/chat' && currentUser && !currentUser.is_admin) { loadChatMessages(); setInterval(() => loadChatMessages(true), 2500); }
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp); else initApp();
