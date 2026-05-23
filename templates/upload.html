@@ -3,69 +3,71 @@
 {% block title %}Jual Barang - ReBekas{% endblock %}
 
 {% block content %}
-<main>
-  <div class="breadcrumb"><a href="/">Beranda</a> / <span>Jual Barang</span></div>
-  <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:1.5rem">📦 Tambah Produk Baru</h2>
-  <div class="upload-card">
-    <div class="upload-area" onclick="triggerUpload()">
-      <div class="upload-icon" id="upload-preview">📷</div>
-      <div class="upload-text"><strong>Klik untuk upload foto</strong> atau drag & drop</div>
-      <div class="upload-text" style="font-size:12px;margin-top:4px">JPG, PNG, WEBP · Maks 5MB · Min 3 foto</div>
+<main style="max-width: 600px; margin: auto;">
+  <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1.5rem">📦 Jual Barang Bekas Anda</h2>
+  
+  <div style="background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius); padding:2rem;">
+    
+    <div class="form-group" style="margin-bottom: 1.5rem;">
+      <label class="form-label">Foto Produk Asli (Opsional/Bisa diganti Emoji)</label>
+      <div style="border: 2px dashed var(--gray-300); border-radius:8px; padding: 2rem; cursor:pointer; text-align:center;" onclick="document.getElementById('product-image-file').click()">
+          <div id="product-upload-preview" style="font-size:30px; margin-bottom:10px;">📸</div>
+          <div style="font-size:14px; font-weight:600; color:var(--primary);">Pilih Foto Barang</div>
+          <input type="file" id="product-image-file" accept="image/*" style="display:none" onchange="handleProductImageUpload(this)">
+      </div>
     </div>
-    <input type="file" id="file-input" style="display:none" accept="image/*" multiple onchange="handleFileUpload(this)" />
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">Judul Produk *</label>
-        <input class="form-input" type="text" id="up-title" placeholder="Contoh: iPhone 12 128GB Mulus" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Harga (Rp) *</label>
-        <input class="form-input" type="number" id="up-price" placeholder="Contoh: 3500000" />
-      </div>
+
+    <div class="form-group">
+      <label class="form-label">Judul Iklan *</label>
+      <input type="text" class="form-input" id="up-title" placeholder="Contoh: iPhone 12 Bekas Mulus">
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Harga Barang (Rp) *</label>
+      <input type="number" class="form-input" id="up-price" placeholder="Contoh: 5000000">
+    </div>
+    
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
       <div class="form-group">
         <label class="form-label">Kategori *</label>
         <select class="form-input" id="up-cat">
-          <option value="">Pilih Kategori</option>
-          <option value="elektronik">Elektronik</option>
-          <option value="fashion">Fashion</option>
-          <option value="furniture">Furniture</option>
-          <option value="kendaraan">Kendaraan</option>
-          <option value="olahraga">Olahraga</option>
-          <option value="buku">Buku</option>
-          <option value="dapur">Dapur</option>
-          <option value="mainan">Mainan</option>
-          <option value="alat">Alat</option>
+          <option value="elektronik">📱 Elektronik</option>
+          <option value="fashion">👗 Fashion</option>
+          <option value="furniture">🪑 Furniture</option>
+          <option value="kendaraan">🚗 Kendaraan</option>
+          <option value="olahraga">⚽ Olahraga</option>
+          <option value="buku">📚 Buku</option>
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">Kondisi *</label>
         <select class="form-input" id="up-cond">
-          <option value="">Pilih Kondisi</option>
-          <option value="Sangat Baik">Sangat Baik – Seperti baru</option>
-          <option value="Baik">Baik – Bekas pakai normal</option>
-          <option value="Cukup">Cukup – Ada cacat minor</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Kota/Lokasi *</label>
-        <input class="form-input" type="text" id="up-loc" placeholder="Contoh: Jakarta Selatan" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Ongkir</label>
-        <select class="form-input" id="up-ongkir">
-          <option value="false">Berbayar</option>
-          <option value="true">Gratis Ongkir</option>
+          <option value="Sangat Baik">Sangat Baik</option>
+          <option value="Baik">Baik</option>
+          <option value="Cukup">Cukup</option>
         </select>
       </div>
     </div>
+    
     <div class="form-group">
-      <label class="form-label">Deskripsi Produk *</label>
-      <textarea class="form-input" id="up-desc" placeholder="Jelaskan kondisi, spesifikasi, riwayat pemakaian, dan info lain yang relevan..."></textarea>
+      <label class="form-label">Lokasi Anda *</label>
+      <input type="text" class="form-input" id="up-loc" placeholder="Contoh: Jakarta Selatan">
     </div>
-    <div style="display:flex;gap:10px;margin-top:0.5rem">
-      <button class="btn btn-primary" onclick="submitProduct()">✅ Publikasikan</button>
-      <button class="btn btn-outline" onclick="window.location.href='/'">Batal</button>
+
+    <div class="form-group">
+      <label class="form-label">Gratis Ongkir?</label>
+      <select class="form-input" id="up-ongkir">
+        <option value="false">Tidak</option>
+        <option value="true">Ya, Gratis Ongkir</option>
+      </select>
     </div>
+    
+    <div class="form-group">
+      <label class="form-label">Deskripsi *</label>
+      <textarea class="form-input" id="up-desc" placeholder="Jelaskan kondisi minus, kelengkapan, dll" style="min-height: 100px; resize:none;"></textarea>
+    </div>
+    
+    <button class="btn btn-primary btn-full" style="padding: 12px; font-size: 1rem; margin-top: 1rem;" onclick="submitProduct()">🚀 Publikasikan Barang</button>
   </div>
 </main>
 {% endblock %}

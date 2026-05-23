@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify
-from models import db, User, Product, CartItem, WishlistItem, Order, OrderItem, Message
+from models import db, User, Product, CartItem, WishlistItem, Order, OrderItem, Message, Review
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
@@ -63,30 +63,54 @@ def get_products():
 @app.route('/api/products/<int:product_id>', methods=['GET', 'PUT', 'DELETE'])
 def handle_product(product_id):
     product = Product.query.get_or_404(product_id)
-    
     if request.method == 'PUT':
         data = request.get_json()
-        product.title = data.get('title', product.title)
-        product.price = data.get('price', product.price)
-        product.category = data.get('category', product.category)
-        product.condition = data.get('condition', product.condition)
-        product.description = data.get('description', product.description)
+        product.title, product.price, product.description = data.get('title', product.title), data.get('price', product.price), data.get('description', product.description)
+        product.category, product.condition = data.get('category', product.category), data.get('condition', product.condition)
         db.session.commit()
-        
     elif request.method == 'DELETE':
+        CartItem.query.filter_by(product_id=product_id).delete()
+        WishlistItem.query.filter_by(product_id=product_id).delete()
+        Review.query.filter_by(product_id=product_id).delete()
+        order_items = OrderItem.query.filter_by(product_id=product_id).all()
+        for oi in order_items:
+            order = Order.query.get(oi.order_id)
+            if order: db.session.delete(order)
+            db.session.delete(oi)
         db.session.delete(product)
         db.session.commit()
         return jsonify({'status': 'deleted'})
-        
     return jsonify(product.to_dict())
 
 @app.route('/api/products', methods=['POST'])
 def create_product():
     data = request.get_json()
-    product = Product(title=data['title'], description=data['description'], price=data['price'], category=data['category'], condition=data['condition'], location=data['location'], seller_id=data.get('seller_id', 1), free_shipping=data.get('free_shipping', False))
+    product = Product(title=data['title'], description=data['description'], price=data['price'], category=data['category'], condition=data['condition'], location=data['location'], seller_id=data.get('seller_id', 1), image=data.get('image', ''), free_shipping=data.get('free_shipping', False))
     db.session.add(product)
     db.session.commit()
     return jsonify(product.to_dict()), 201
+
+# API ULASAN / REVIEWS (ANTI SPAM)
+@app.route('/api/reviews', methods=['POST'])
+def create_review():
+    data = request.get_json()
+    
+    # CEK: Jika pembeli sudah mengulas produk ini, tolak permintaannya
+    existing_review = Review.query.filter_by(product_id=data['product_id'], reviewer_id=data['reviewer_id']).first()
+    if existing_review:
+        return jsonify({'error': 'Anda sudah mengulas produk ini sebelumnya'}), 400
+        
+    review = Review(product_id=data['product_id'], reviewer_id=data['reviewer_id'], rating=data['rating'], comment=data.get('comment', ''))
+    db.session.add(review)
+    db.session.commit()
+    return jsonify(review.to_dict()), 201
+
+@app.route('/api/reviews/seller/<int:seller_id>', methods=['GET'])
+def get_seller_reviews(seller_id):
+    products = Product.query.filter_by(seller_id=seller_id).all()
+    p_ids = [p.id for p in products]
+    reviews = Review.query.filter(Review.product_id.in_(p_ids)).order_by(Review.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in reviews])
 
 @app.route('/api/store/<int:seller_id>', methods=['GET'])
 def get_store_dashboard(seller_id):
@@ -104,6 +128,15 @@ def get_store_dashboard(seller_id):
             if status == 'Terjual': break
         items_data.append({'id': p.id, 'title': p.title, 'price': p.price, 'category': p.category, 'condition': p.condition, 'desc': p.description, 'status': status, 'order_status': order_status, 'order_id': order_id})
     return jsonify({'items': items_data, 'total_revenue': total_revenue})
+
+@app.route('/api/auth/register', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    if User.query.filter_by(email=data['email']).first(): return jsonify({'error': 'Email terdaftar'}), 400
+    user = User(name=data['name'], email=data['email'], password=generate_password_hash(data['password']), avatar=data['name'][0].upper())
+    db.session.add(user)
+    db.session.commit()
+    return jsonify(user.to_dict()), 201
 
 @app.route('/api/auth/login', methods=['POST'])
 def login_user():
@@ -151,9 +184,21 @@ def create_order():
     db.session.commit()
     return jsonify(order.to_dict()), 201
 
+# CEK STATUS ULASAN SAAT MEMUAT PESANAN PEMBELI
 @app.route('/api/orders/buyer/<int:buyer_id>', methods=['GET'])
 def get_buyer_orders(buyer_id):
-    return jsonify([o.to_dict() for o in Order.query.filter_by(user_id=buyer_id).order_by(Order.created_at.desc()).all()])
+    orders = Order.query.filter_by(user_id=buyer_id).order_by(Order.created_at.desc()).all()
+    res = []
+    for o in orders:
+        o_dict = o.to_dict()
+        if o.items:
+            # Mengecek apakah pembeli sudah mengulas produk di pesanan ini
+            has_reviewed = Review.query.filter_by(product_id=o.items[0].product_id, reviewer_id=buyer_id).first() is not None
+            o_dict['is_reviewed'] = has_reviewed
+        else:
+            o_dict['is_reviewed'] = False
+        res.append(o_dict)
+    return jsonify(res)
 
 @app.route('/api/orders/<int:order_id>/proof', methods=['PUT'])
 def upload_order_proof(order_id):
@@ -183,19 +228,15 @@ def update_order_status(order_id):
     db.session.commit()
     return jsonify(order.to_dict())
 
-# API ADMIN MEMANTAU ALL CHAT (DIRENGKAS BERDASARKAN PASANGAN)
 @app.route('/api/admin/chat_pairs', methods=['GET'])
 def get_chat_pairs():
     messages = Message.query.order_by(Message.created_at.asc()).all()
     pairs = {}
     for m in messages:
-        # Buat key unik tidak peduli siapa yang mengirim duluan (misal: "2-3")
         id_a, id_b = min(m.sender_id, m.recipient_id), max(m.sender_id, m.recipient_id)
         pair_key = f"{id_a}-{id_b}"
-        
         if pair_key not in pairs:
-            user_a = User.query.get(id_a)
-            user_b = User.query.get(id_b)
+            user_a, user_b = User.query.get(id_a), User.query.get(id_b)
             pairs[pair_key] = {
                 'user1_id': id_a, 'user1_name': user_a.name if user_a else 'Unknown',
                 'user2_id': id_b, 'user2_name': user_b.name if user_b else 'Unknown',
@@ -204,25 +245,17 @@ def get_chat_pairs():
         else:
             pairs[pair_key]['last_message'] = m.content
             pairs[pair_key]['timestamp'] = m.created_at.isoformat()
-            
     return jsonify(list(pairs.values()))
 
-# API ADMIN UNTUK PREVIEW DETAIL CHAT TERTENTU
 @app.route('/api/admin/chat_detail', methods=['GET'])
 def get_chat_detail():
-    u1 = request.args.get('user1', type=int)
-    u2 = request.args.get('user2', type=int)
-    messages = Message.query.filter(
-        ((Message.sender_id == u1) & (Message.recipient_id == u2)) |
-        ((Message.sender_id == u2) & (Message.recipient_id == u1))
-    ).order_by(Message.created_at.asc()).all()
+    u1, u2 = request.args.get('user1', type=int), request.args.get('user2', type=int)
+    messages = Message.query.filter(((Message.sender_id == u1) & (Message.recipient_id == u2)) | ((Message.sender_id == u2) & (Message.recipient_id == u1))).order_by(Message.created_at.asc()).all()
     return jsonify([m.to_dict() for m in messages])
 
-# API UNTUK ADMIN CHAT LANGSUNG KE USER
 @app.route('/api/admin/send_as_admin', methods=['POST'])
 def send_as_admin():
     data = request.get_json()
-    # Pastikan admin mengirim pesan sebagai perwakilan dari ID Sistem Admin (ID: 1)
     msg = Message(sender_id=1, recipient_id=data['recipient_id'], content=data['content'])
     db.session.add(msg)
     db.session.commit()

@@ -11,12 +11,22 @@
   </div>
   <div class="detail-layout">
     <div>
-      <div class="detail-gallery" id="detail-img"></div>
+      <div class="detail-gallery" id="detail-img-container" style="display:flex; justify-content:center; align-items:center; overflow:hidden;">
+          <span id="detail-img" style="font-size: 5rem;"></span>
+      </div>
       <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:1.25rem;margin-top:1rem">
         <div style="font-size:15px;font-weight:700;margin-bottom:0.75rem;color:var(--gray-800)">Deskripsi Produk</div>
         <p id="detail-desc" style="font-size:14px;color:var(--gray-600);line-height:1.8"></p>
       </div>
+      
+      <div style="margin-top:2rem; background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:1.5rem;">
+          <h3 style="font-weight:800; margin-bottom:1.5rem;">⭐ Ulasan Pembeli untuk Toko Ini</h3>
+          <div id="seller-reviews-list">
+              <div style="color:var(--gray-500); text-align:center; padding: 2rem;">Memuat ulasan...</div>
+          </div>
+      </div>
     </div>
+    
     <div>
       <div class="detail-info">
         <div id="detail-badge" style="margin-bottom:10px"></div>
@@ -25,19 +35,17 @@
         <div class="detail-meta-row">📍 <strong id="detail-location"></strong></div>
         <div class="detail-meta-row">🏷️ Kondisi: <strong id="detail-condition"></strong></div>
         <div class="detail-meta-row">📂 Kategori: <strong id="detail-category"></strong></div>
-        <div class="detail-meta-row">⭐ Rating: <strong id="detail-rating"></strong></div>
         <hr class="detail-divider" />
         <div class="seller-card">
           <div class="seller-avatar" id="detail-seller-avatar"></div>
           <div>
             <div class="seller-name" id="detail-seller-name"></div>
-            <div class="seller-rating">⭐ 4.8 · Anggota sejak 2023</div>
+            <div class="seller-rating">Toko Partner ReBekas</div>
           </div>
         </div>
         <div class="action-buttons">
           <button class="btn btn-primary btn-full" id="detail-cart-btn" onclick="addCurrentToCart()">🛒 Tambah ke Keranjang</button>
           <button class="btn btn-outline btn-full" id="detail-wishlist-btn" onclick="toggleWishlistCurrent()">❤️ Wishlist</button>
-          
           <button class="btn btn-outline btn-full" id="detail-chat-btn">💬 Chat Penjual</button>
         </div>
       </div>

@@ -17,8 +17,10 @@ async function loadProducts() {
 
 function makeCard(p) {
   const badge = p.trusted ? '<span class="product-badge badge-trusted">Trusted</span>' : p.freeShip ? '<span class="product-badge badge-free">Gratis Ongkir</span>' : '';
+  const imgContent = p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; border-radius:12px;">` : `<div style="font-size:3rem;">${EMOJIS[p.category] || '📦'}</div>`;
+  
   return `<div class="product-card" onclick="window.location.href='/detail/${p.id}'">
-    <div class="product-img">${EMOJIS[p.category] || '📦'}${badge}</div>
+    <div class="product-img" style="position:relative; overflow:hidden;">${imgContent}${badge}</div>
     <div class="product-info"><div class="product-price">${formatPrice(p.price)}</div><div class="product-title">${p.title}</div><div class="product-meta"><span>📍 ${p.location}</span><span>⭐ ${p.rating}</span></div></div>
   </div>`;
 }
@@ -48,7 +50,19 @@ function applyFilters() {
   renderBrowse(list);
 }
 function resetFilters() { ['filter-cat','filter-cond','filter-sort','filter-min','filter-max'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; }); renderBrowse(products); }
-function filterByCategory(cat, el) { document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active')); if(el) el.classList.add('active'); renderBrowse(cat === 'all' ? products : products.filter(p => p.category === cat)); }
+
+function filterByCategory(cat, el) { 
+    document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active')); 
+    if(el) el.classList.add('active'); 
+    const list = cat === 'all' ? products : products.filter(p => p.category === cat); 
+    const homeGrid = document.getElementById('home-grid');
+    if (homeGrid) {
+        if(list.length === 0) homeGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--gray-500); font-weight:700;">Belum ada produk di kategori ini.</div>';
+        else homeGrid.innerHTML = list.map(p => makeCard(p)).join('');
+    }
+    const browseGrid = document.getElementById('browse-grid');
+    if (browseGrid) renderBrowse(list);
+}
 
 let searchTimeout;
 function handleNavSearch(val) { if (window.location.pathname !== '/browse') return; clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { if (val.trim()) goSearch(val); }, 400); }
@@ -58,6 +72,7 @@ function goSearch(q) {
   else renderBrowse(products.filter(p => p.title.toLowerCase().includes(query.toLowerCase()) || p.category.toLowerCase().includes(query.toLowerCase())));
 }
 
+// ===== CART & ORDER =====
 async function addCurrentToCart() {
   if (!currentProduct) return;
   if (!currentUser) { showToast('Silakan masuk', ''); window.location.href = '/login'; return; }
@@ -72,7 +87,10 @@ function renderCart() {
   const empty = document.getElementById('cart-empty'), content = document.getElementById('cart-content'); if (!empty || !content) return;
   if (!cart.length) { empty.style.display = 'block'; content.style.display = 'none'; return; }
   empty.style.display = 'none'; content.style.display = 'grid';
-  document.getElementById('cart-items-list').innerHTML = cart.map(p => `<div class="cart-item"><div class="cart-item-img">${EMOJIS[p.category] || '📦'}</div><div class="cart-item-info"><div class="cart-item-name">${p.title}</div><div class="cart-item-price">${formatPrice(p.price)}</div></div><button class="cart-remove" onclick="removeCart(${p.id})">🗑️</button></div>`).join('');
+  document.getElementById('cart-items-list').innerHTML = cart.map(p => {
+      const imgContent = p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="font-size:2rem; text-align:center;">${EMOJIS[p.category] || '📦'}</div>`;
+      return `<div class="cart-item"><div class="cart-item-img" style="overflow:hidden;">${imgContent}</div><div class="cart-item-info"><div class="cart-item-name">${p.title}</div><div class="cart-item-price">${formatPrice(p.price)}</div></div><button class="cart-remove" onclick="removeCart(${p.id})">🗑️</button></div>`;
+  }).join('');
   document.getElementById('cart-qty').textContent = cart.length; document.getElementById('cart-total').textContent = document.getElementById('cart-subtotal').textContent = formatPrice(cart.reduce((s,p) => s + p.price, 0));
 }
 async function loadUserCart(userId) {
@@ -84,12 +102,9 @@ async function checkout() {
   if (!currentUser || currentUser.is_admin || !cart.length) return;
   try { await fetch(`${API_BASE}/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, total_price: cart.reduce((s,p) => s + p.price, 0), items: cart.map(i => ({ product_id: i.id, quantity: 1, price: i.price })) }) }); cart = []; showToast('Arahkan ke Pembayaran', 'success'); setTimeout(() => window.location.href = '/payment', 1000); } catch(e) {}
 }
-// DI PANGGIL DARI payment.html 
-function completePayment() {
-    showToast('✅ Transfer Dikonfirmasi. Menunggu Validasi Admin.', 'success');
-    setTimeout(() => { window.location.href = '/orders'; }, 1500);
-}
+function completePayment() { showToast('✅ Transfer Dikonfirmasi. Menunggu Validasi Admin.', 'success'); setTimeout(() => { window.location.href = '/orders'; }, 1500); }
 
+// ===== WISHLIST & UPLOAD =====
 async function loadUserWishlist(userId) { try { const res = await fetch(`${API_BASE}/wishlist/${userId}`); const items = await res.json(); wishlist = items.map(i => i.product_id); window.wishlistItems = items.map(i => i.product).filter(p => p); } catch(e) {} }
 function renderWishlist() {
   const grid = document.getElementById('wishlist-grid'); if(!grid) return;
@@ -108,14 +123,30 @@ async function toggleWishlistCurrent() {
   if (window.location.pathname === '/wishlist') renderWishlist();
 }
 
+let tempProductImageBase64 = '';
+function handleProductImageUpload(input) {
+    if(!input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = (e) => { 
+        tempProductImageBase64 = e.target.result; 
+        document.getElementById('product-upload-preview').innerHTML = `<img src="${tempProductImageBase64}" style="width:100%; max-height:150px; object-fit:contain; border-radius:8px;">`; 
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
 async function submitProduct() {
   if (!currentUser || currentUser.is_admin) return;
   const title = document.getElementById('up-title').value.trim(), price = document.getElementById('up-price').value, cat = document.getElementById('up-cat').value, cond = document.getElementById('up-cond').value, loc = document.getElementById('up-loc').value.trim(), desc = document.getElementById('up-desc').value.trim();
-  if (!title || !price || !cat || !cond || !loc || !desc) { showToast('Lengkapi (*)', ''); return; }
-  await fetch(`${API_BASE}/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description: desc, price: parseInt(price), category: cat, condition: cond, location: loc, seller_id: currentUser.id }) });
-  showToast('✅ Diupload!', 'success'); setTimeout(() => window.location.href = '/', 1200);
+  if (!title || !price || !cat || !cond || !loc || !desc) { showToast('Lengkapi semua data (*)', ''); return; }
+  
+  await fetch(`${API_BASE}/products`, { 
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ title, description: desc, price: parseInt(price), category: cat, condition: cond, location: loc, seller_id: currentUser.id, image: tempProductImageBase64 }) 
+  });
+  showToast('✅ Produk Berhasil Diupload!', 'success'); setTimeout(() => window.location.href = '/', 1200);
 }
 
+// ===== AUTH =====
 async function loginEmail() {
   const email = document.getElementById('login-email').value.trim(), password = document.getElementById('login-pass').value.trim();
   if(!email || !password) { showToast('Isi semua field', ''); return; }
@@ -137,13 +168,12 @@ async function registerEmail() {
   } catch (e) { showToast('Gagal Mendaftar', ''); }
 }
 function logout() { localStorage.removeItem('currentUser'); window.location.href = '/'; }
-
 function showToast(msg, type) { const t = document.getElementById('toast'); if(!t) return; t.textContent = msg; t.className = 'toast show ' + (type === 'success' ? 'toast-success' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
 function toggleDropdown() { document.getElementById('user-dropdown')?.classList.toggle('open'); }
 function closeDropdown() { document.getElementById('user-dropdown')?.classList.remove('open'); }
 document.addEventListener('click', e => { if (!e.target.closest('.user-menu')) closeDropdown(); });
 
-// ===== SELLER DASHBOARD (EDIT LENGKAP) =====
+// ===== SELLER DASHBOARD =====
 async function loadStoreDashboard() {
   if (!currentUser || currentUser.is_admin) return;
   try {
@@ -155,7 +185,7 @@ async function loadStoreDashboard() {
       list.innerHTML = data.items.map(i => {
           let btn = '-';
           const canEdit = (i.status === 'Tersedia') || (i.status === 'Terjual' && i.order_status === 'pending');
-          const cleanDesc = i.desc ? i.desc.replace(/"/g, '&quot;') : ''; // Cegah error petik
+          const cleanDesc = i.desc ? i.desc.replace(/"/g, '&quot;') : ''; 
           
           if (i.status === 'Tersedia') btn = `<button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="openEditModal(${i.id}, '${i.title}', ${i.price}, '${i.category}', '${i.condition}', '${cleanDesc}')">✏️ Edit Lengkap</button>`;
           else if (i.order_status === 'pending') btn = `<button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="openEditModal(${i.id}, '${i.title}', ${i.price}, '${i.category}', '${i.condition}', '${cleanDesc}')">✏️ Edit Lengkap</button> <div style="font-size:11px;color:var(--accent);margin-top:4px">Belum dibayar</div>`;
@@ -185,7 +215,6 @@ function openEditModal(id, title, price, cat, cond, desc) {
     document.getElementById('edit-modal').style.display = 'flex';
 }
 function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
-
 async function saveEditProduct() {
     const id = document.getElementById('edit-id').value;
     const title = document.getElementById('edit-title').value.trim();
@@ -193,24 +222,21 @@ async function saveEditProduct() {
     const category = document.getElementById('edit-cat').value;
     const condition = document.getElementById('edit-cond').value;
     const description = document.getElementById('edit-desc').value.trim();
-    
     if (!title || !price || !description) { showToast('Lengkapi field wajib!', ''); return; }
     try {
-        await fetch(`${API_BASE}/products/${id}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, price: parseInt(price), category, condition, description })
-        });
+        await fetch(`${API_BASE}/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, price: parseInt(price), category, condition, description }) });
         showToast('✅ Berhasil Diupdate!', 'success'); closeEditModal(); loadStoreDashboard();
     } catch(e) { showToast('Gagal', ''); }
 }
 
-// ===== ORDERS (BUYER) =====
+// ===== ORDERS (BUYER & ULASAN ANTI SPAM) =====
 async function loadBuyerOrders() {
   if (!currentUser || currentUser.is_admin) return;
   try {
       const res = await fetch(`${API_BASE}/orders/buyer/${currentUser.id}`); const orders = await res.json();
       const list = document.getElementById('buyer-orders-list'); if (!list) return;
       if (!orders.length) { list.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem;">Belum ada pesanan.</td></tr>'; return; }
+      
       list.innerHTML = orders.map(o => {
           let btn = '-';
           if (o.status === 'pending') btn = '⏳ Menunggu Validasi Bayar Admin';
@@ -218,10 +244,68 @@ async function loadBuyerOrders() {
           else if (o.status === 'verifikasi_kirim') btn = '📦 Proses Kirim';
           else if (o.status === 'dikirim') btn = `<button class="btn btn-accent" style="padding:6px 10px; font-size:12px;" onclick="openProofModal(${o.id}, 'receipt')">Konfirmasi Terima</button>`;
           else if (o.status === 'verifikasi_terima') btn = '⏳ Admin Mengecek Foto Terima';
-          else if (o.status === 'selesai') btn = '✅ Selesai';
+          else if (o.status === 'selesai') {
+              // LOGIKA BARU: Jika dari database is_reviewed True, hilangkan tombol Beri Ulasan
+              if (o.is_reviewed) {
+                  btn = '<span style="color:var(--success); font-weight:800;">⭐⭐⭐⭐⭐ Sudah Diulas</span>';
+              } else {
+                  btn = `<button class="btn btn-primary" style="padding:6px 10px; font-size:12px;" onclick="openReviewModal(${o.items[0].product_id})">⭐ Beri Ulasan</button>`;
+              }
+          }
           return `<tr style="border-bottom:1px solid var(--gray-200);"><td style="padding:15px; font-weight:bold;">#ORD-${o.id}</td><td style="padding:15px; color:var(--primary); font-weight:bold;">${formatPrice(o.total_price)}</td><td style="padding:15px;"><span class="product-badge badge-trusted" style="position:static;">${o.status.toUpperCase()}</span></td><td style="padding:15px;">${btn}</td></tr>`;
       }).join('');
   } catch(e) {}
+}
+
+let reviewProductId = null;
+function openReviewModal(productId) {
+    reviewProductId = productId;
+    document.getElementById('review-modal').style.display = 'flex';
+}
+
+async function submitReview() {
+    const rating = document.getElementById('review-rating').value;
+    const comment = document.getElementById('review-comment').value.trim();
+    try {
+        const res = await fetch(`${API_BASE}/reviews`, { 
+            method: 'POST', headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({product_id: reviewProductId, reviewer_id: currentUser.id, rating: parseInt(rating), comment: comment})
+        });
+        
+        if (!res.ok) throw new Error('Gagal atau sudah pernah diulas');
+        
+        document.getElementById('review-modal').style.display = 'none';
+        showToast('Terima kasih atas ulasan Anda!', 'success');
+        
+        // Refresh tabel pesanan supaya tombol Beri Ulasan langsung berubah
+        loadBuyerOrders(); 
+    } catch(e) { 
+        showToast('Barang ini sudah Anda ulas sebelumnya!', ''); 
+        document.getElementById('review-modal').style.display = 'none';
+    }
+}
+
+async function loadSellerReviews(sellerId) {
+    try {
+        const res = await fetch(`${API_BASE}/reviews/seller/${sellerId}`);
+        const reviews = await res.json();
+        const box = document.getElementById('seller-reviews-list');
+        if(!box) return;
+        if(reviews.length === 0) {
+            box.innerHTML = '<div style="color:var(--gray-500); text-align:center; padding: 2rem;">Toko ini belum memiliki ulasan publik.</div>';
+            return;
+        }
+        box.innerHTML = reviews.map(r => `
+            <div style="border-bottom:1px solid var(--gray-100); padding-bottom:15px; margin-bottom:15px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-weight:800; color:var(--gray-800);">${r.reviewer_name}</span>
+                    <span style="color:#FFD700; font-size:14px;">${'⭐'.repeat(r.rating)}</span>
+                </div>
+                <div style="font-size:14px; color:var(--gray-600); line-height:1.6;">"${r.comment}"</div>
+                <div style="font-size:11px; color:var(--gray-400); margin-top:8px;">Tanggal Ulasan: ${new Date(r.created_at).toLocaleDateString('id-ID')}</div>
+            </div>
+        `).join('');
+    } catch(e) {}
 }
 
 let tempProofBase64 = '';
@@ -303,7 +387,7 @@ async function sendMessage() {
   i.value = ''; loadChatMessages(true);
 }
 
-// ===== ROUTER =====
+// ===== ROUTER UTAMA =====
 async function initLoginState() {
   const savedUser = localStorage.getItem('currentUser');
   if (savedUser) {
@@ -336,10 +420,17 @@ async function initApp() {
     try {
         const res = await fetch(`${API_BASE}/products/${id}`); if (!res.ok) throw new Error();
         const p = await res.json(); currentProduct = p;
-        ['img','price','title','location','condition','category','rating','desc','seller-name'].forEach(k => { if(document.getElementById(`detail-${k}`)) document.getElementById(`detail-${k}`).textContent = p[k] || p[k.replace('-name','')]; });
-        document.getElementById('detail-img').textContent = EMOJIS[p.category] || '📦'; document.getElementById('detail-price').textContent = formatPrice(p.price); document.getElementById('detail-seller-avatar').textContent = (p.seller||'P')[0].toUpperCase();
         
-        // PEMBATASAN UNTUK PENJUAL (TIDAK BISA BELI/WISHLIST/CHAT BARANG SENDIRI)
+        ['price','title','location','condition','category','rating','desc'].forEach(k => { if(document.getElementById(`detail-${k}`)) document.getElementById(`detail-${k}`).textContent = p[k]; });
+        
+        if (p.image) document.getElementById('detail-img-container').innerHTML = `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover; border-radius:var(--radius);">`;
+        else document.getElementById('detail-img').textContent = EMOJIS[p.category] || '📦';
+        
+        document.getElementById('detail-price').textContent = formatPrice(p.price); document.getElementById('detail-seller-avatar').textContent = (p.seller||'P')[0].toUpperCase();
+        document.getElementById('detail-seller-name').textContent = p.seller;
+        
+        loadSellerReviews(p.seller_id);
+        
         if (currentUser && currentUser.is_admin) { 
             ['detail-cart-btn','detail-wishlist-btn','detail-chat-btn'].forEach(btnId => { const b=document.getElementById(btnId); if(b){b.disabled=true; b.textContent='🔒 Area Admin';} }); 
         } else if (currentUser && (currentUser.id === p.seller_id || currentUser.name === p.seller)) {
