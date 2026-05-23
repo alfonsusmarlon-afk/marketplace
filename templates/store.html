@@ -7,32 +7,26 @@
   <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:1.5rem">🏪 Manajemen Toko Saya</h2>
   
   <div style="background:var(--primary); color:white; padding:2rem; border-radius:var(--radius); margin-bottom:2.5rem; text-align:center;">
-    <p style="font-size:1.1rem; margin-bottom:0.5rem; opacity:0.9;">Total Pendapatan (Pesanan Lunas)</p>
+    <p style="font-size:1.1rem; margin-bottom:0.5rem; opacity:0.9;">Total Pendapatan (Pesanan Selesai)</p>
     <h1 id="store-revenue" style="font-size:2.5rem; font-weight:800; margin:0;">Rp 0</h1>
   </div>
   
-  <h3 style="margin-bottom: 1rem;">Daftar Produk yang Anda Jual</h3>
   <div style="background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius); overflow-x:auto;">
-    <table style="width:100%; border-collapse: collapse; text-align:left; font-size: 14.5px;">
+    <table style="width:100%; border-collapse: collapse; text-align:left; font-size: 14px;">
       <thead>
         <tr style="background: var(--gray-100); border-bottom:2px solid var(--gray-200);">
-          <th style="padding:15px; width: 40%;">Nama Produk</th>
+          <th style="padding:15px;">Nama Produk</th>
           <th style="padding:15px;">Harga</th>
-          <th style="padding:15px;">Kondisi Barang</th>
-          <th style="padding:15px;">Validasi Pembayaran</th>
+          <th style="padding:15px;">Status Pengiriman</th>
+          <th style="padding:15px;">Tindakan Penjual</th>
         </tr>
       </thead>
       <tbody id="store-items-list">
-        <tr><td colspan="4" style="text-align:center; padding:2rem;">Memuat data toko Anda...</td></tr>
       </tbody>
     </table>
   </div>
 </main>
-
 <script>
-  // Memberi sedikit jeda waktu tunggu agar file script.js selesai memuat data login User
-  document.addEventListener('DOMContentLoaded', () => {
-     setTimeout(() => { loadStoreDashboard(); }, 400); 
-  });
+  document.addEventListener('DOMContentLoaded', () => { setTimeout(() => { loadStoreDashboard(); }, 500); });
 </script>
 {% endblock %}

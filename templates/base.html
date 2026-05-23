@@ -9,44 +9,35 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
-
   <nav>
     <div class="nav-inner">
-      <a class="logo" href="/" style="cursor:pointer">
-        ReBekas
-        <span class="logo-badge">BETA</span>
-      </a>
+      <a class="logo" href="/">ReBekas<span class="logo-badge">BETA</span></a>
       <div class="search-bar" style="margin-left:1.5rem">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input type="text" id="nav-search" placeholder="Cari barang bekas..." oninput="handleNavSearch(this.value)" onkeydown="if(event.key==='Enter')goSearch()" />
       </div>
       <div class="nav-actions">
-        <button class="btn btn-outline cart-btn" id="nav-cart-btn" onclick="window.location.href='/cart'">
-          🛒
-          <span class="cart-count" id="cart-count">0</span>
-        </button>
-        
+        <button class="btn btn-outline cart-btn" id="nav-cart-btn" onclick="window.location.href='/cart'">🛒<span class="cart-count" id="cart-count">0</span></button>
         <div id="nav-auth">
           <button class="btn btn-outline" onclick="window.location.href='/login'">Masuk</button>
           <button class="btn btn-primary" onclick="window.location.href='/register'" style="margin-left:6px">Daftar</button>
         </div>
-        
         <div id="nav-user" style="display:none">
           <button class="btn btn-accent" id="nav-jual-btn" onclick="window.location.href='/upload'" style="margin-right:6px">+ Jual</button>
           <div class="user-menu">
             <div class="user-avatar" id="user-avatar-btn" onclick="toggleDropdown()">A</div>
             <div class="user-dropdown" id="user-dropdown">
-              
               <div style="padding: 14px 16px; border-bottom: 1px solid var(--gray-200); margin-bottom: 4px; background: var(--gray-50); cursor: default;">
-                <div id="dropdown-user-name" style="font-weight: 800; color: var(--gray-900); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Memuat...</div>
+                <div id="dropdown-user-name" style="font-weight: 800; color: var(--gray-900); font-size: 14px;">Memuat...</div>
                 <div id="dropdown-user-role" style="font-size: 12px; font-weight: 600; color: var(--gray-500); margin-top: 4px;">Akun Reguler</div>
               </div>
-              
-              <div class="dropdown-item" id="menu-jual" onclick="closeDropdown();window.location.href='/upload'">📦 Jual Barang</div>
+              <div class="dropdown-item" id="menu-orders" onclick="closeDropdown();window.location.href='/orders'">📦 Pesanan Saya</div>
+              <div class="dropdown-item" id="menu-jual" onclick="closeDropdown();window.location.href='/upload'">🏷️ Jual Barang</div>
               <div class="dropdown-item" id="menu-wishlist" onclick="closeDropdown();window.location.href='/wishlist'">❤️ Wishlist</div>
-              <div class="dropdown-item" id="menu-chat" onclick="closeDropdown();window.location.href='/chat'">💬 Chat</div>
+              <div class="dropdown-item" id="menu-chat" onclick="closeDropdown();window.location.href='/chat'" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>💬 Chat</span><span id="nav-chat-badge" style="background:var(--primary); color:#fff; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:800; display:none;">0</span>
+              </div>
               <div class="dropdown-item" id="menu-toko" onclick="closeDropdown();window.location.href='/store'">🏪 Toko Saya</div>
-              
               <div class="dropdown-item" id="admin-menu-item" style="display:none; font-weight:700; color:var(--primary)" onclick="closeDropdown();window.location.href='/admin'">🛠 Dashboard Admin</div>
               <div class="dropdown-divider"></div>
               <div class="dropdown-item danger" onclick="logout()">🚪 Keluar</div>
@@ -59,10 +50,28 @@
 
   {% block content %}{% endblock %}
 
+  <div id="proof-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+      <div style="background:#fff; padding:2rem; border-radius:12px; width:90%; max-width:400px; text-align:center;">
+          <h3 style="margin-bottom:1rem; font-weight:800;" id="proof-modal-title">Upload Bukti</h3>
+          <input type="hidden" id="proof-order-id">
+          <input type="hidden" id="proof-type">
+          
+          <div style="border: 2px dashed var(--gray-300); border-radius:8px; padding: 2rem; margin-bottom:1rem; cursor:pointer;" onclick="document.getElementById('proof-file').click()">
+              <div style="font-size:30px; margin-bottom:10px;">📸</div>
+              <div style="font-size:14px; font-weight:600; color:var(--primary);">Pilih Foto Bukti</div>
+              <input type="file" id="proof-file" accept="image/*" style="display:none" onchange="handleProofFile(this)">
+          </div>
+          
+          <img id="proof-preview" src="" style="width:100%; max-height:200px; object-fit:contain; display:none; border-radius:8px; margin-bottom:1rem;">
+          
+          <div style="display:flex; gap:10px; justify-content:center;">
+              <button class="btn btn-primary" onclick="submitProof()">Kirim Verifikasi</button>
+              <button class="btn btn-outline" onclick="document.getElementById('proof-modal').style.display='none'">Batal</button>
+          </div>
+      </div>
+  </div>
+
   <div class="toast" id="toast"></div>
-
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-  {% block scripts %}{% endblock %}
-
 </body>
 </html>
