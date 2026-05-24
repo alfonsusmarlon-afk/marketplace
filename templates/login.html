@@ -29,7 +29,7 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <div id="g_id_onload"
-         data-client_id="MOHON_GANTI_DENGAN_CLIENT_ID_GOOGLE_KAMU.apps.googleusercontent.com"
+         data-client_id="999544977980-r1vcsqe30c273mu5ufhbt5lba58eqpri.apps.googleusercontent.com"
          data-callback="handleGoogleLogin">
     </div>
     <div class="g_id_signin" data-type="standard" data-theme="outline" data-size="large" data-width="100%"></div>
@@ -41,7 +41,6 @@
 </main>
 
 <script>
-// JavaScript Penjaga untuk Mengirim Token ke Backend Flask
 async function handleGoogleLogin(response) {
     try {
         const res = await fetch('/api/auth/google', {
@@ -54,7 +53,7 @@ async function handleGoogleLogin(response) {
         
         const userData = await res.json();
         localStorage.setItem('currentUser', JSON.stringify(userData));
-        window.location.href = '/'; // Redirect otomatis ke Beranda
+        window.location.href = '/'; 
     } catch (e) {
         alert('Gagal autentikasi menggunakan Akun Google Anda.');
     }

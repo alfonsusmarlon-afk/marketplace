@@ -1,33 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}Daftar - ReBekas{% endblock %}
+{% block title %}Daftar Akun — ReBekas{% endblock %}
 
 {% block content %}
-<main>
-  <div class="auth-wrapper">
-    <div class="auth-card">
-      <div class="auth-logo">ReBekas</div>
-      <div class="auth-subtitle">Buat akun gratis dan mulai berjualan</div>
-      <button class="btn-google" onclick="loginWithGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.9 6.1C12.4 13 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.9 7.2l7.7 6c4.5-4.1 7-10.2 7-17.2z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.8-4.6l-7.9-6.1A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.7-6c-2 1.4-4.7 2.2-7.5 2.2-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
-        Daftar dengan Google
-      </button>
-      <div class="auth-divider">atau daftar dengan email</div>
-      <div class="form-group">
-        <label class="form-label">Nama Lengkap</label>
-        <input class="form-input" type="text" id="reg-name" placeholder="Nama kamu" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" type="email" id="reg-email" placeholder="nama@email.com" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Kata Sandi</label>
-        <input class="form-input" type="password" id="reg-pass" placeholder="Min. 8 karakter" />
-      </div>
-      <button class="btn btn-primary btn-full" onclick="registerEmail()">Buat Akun</button>
-      <div class="auth-switch">Sudah punya akun? <a href="/login">Masuk di sini</a></div>
+<main style="max-width: 420px; margin: auto; padding-top: 3rem;">
+  <div style="background: #fff; border: 1px solid var(--gray-200); border-radius: 16px; padding: 2.5rem; box-shadow: var(--shadow-md);">
+    <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; text-align: center;">Buat Akun Baru</h2>
+    <p style="color: var(--gray-500); font-size: 14px; text-align: center; margin-bottom: 2rem;">Bergabunglah dengan komunitas ReBekas</p>
+    
+    <div class="form-group">
+      <label class="form-label">Nama Lengkap</label>
+      <input type="text" class="form-input" id="reg-name" placeholder="John Doe" />
     </div>
+
+    <div class="form-group">
+      <label class="form-label">Alamat Email</label>
+      <input type="email" class="form-input" id="reg-email" placeholder="nama@email.com" />
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 1.5rem;">
+      <label class="form-label">Kata Sandi</label>
+      <input type="password" class="form-input" id="reg-pass" placeholder="Minimal 6 karakter" />
+    </div>
+    
+    <button class="btn btn-primary btn-full" style="padding: 12px; font-size: 14px; font-weight: 600;" onclick="registerEmail()">Daftar Sekarang</button>
+    
+    <div style="display: flex; align-items: center; margin: 1.5rem 0; color: var(--gray-400); font-size: 13px;">
+      <hr style="flex: 1; border: 0; border-top: 1px solid var(--gray-200);" />
+      <span style="padding: 0 10px;">atau daftar instan dengan</span>
+      <hr style="flex: 1; border: 0; border-top: 1px solid var(--gray-200);" />
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <div id="g_id_onload"
+         data-client_id="999544977980-r1vcsqe30c273mu5ufhbt5lba58eqpri.apps.googleusercontent.com"
+         data-callback="handleGoogleLogin">
+    </div>
+    <div class="g_id_signin" data-type="standard" data-theme="outline" data-size="large" data-width="100%"></div>
+
+    <p style="text-align: center; margin-top: 2rem; font-size: 14px; color: var(--gray-600); margin-bottom: 0;">
+      Sudah punya akun? <a href="/login" style="color: var(--primary); font-weight: 600; text-decoration: none;">Masuk di sini</a>
+    </p>
   </div>
 </main>
+
+<script>
+async function handleGoogleLogin(response) {
+    try {
+        const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: response.credential })
+        });
+        
+        if (!res.ok) throw new Error('Validasi Token Google Gagal');
+        
+        const userData = await res.json();
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        window.location.href = '/'; 
+    } catch (e) {
+        alert('Gagal autentikasi menggunakan Akun Google Anda.');
+    }
+}
+</script>
 {% endblock %}
