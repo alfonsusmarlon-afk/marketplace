@@ -1,13 +1,21 @@
 from flask import Flask, render_template, request, jsonify
 from models import db, User, Product, CartItem, WishlistItem, Order, OrderItem, Message, Review
 from werkzeug.security import generate_password_hash, check_password_hash
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 import os
 
 app = Flask(__name__)
-basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "marketplace.db")}'
+
+# ===== 1. KONFIGURASI POSTGRESQL =====
+# Ganti 'postgres' dan 'password_kamu' sesuai dengan akun PostgreSQL komputermu!
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123456@localhost:5432/marketplace_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key-here'
+
+# ===== KONFIGURASI GOOGLE LOGIN =====
+# Tempel teks Client ID yang kamu dapatkan dari Google Cloud Console di bawah ini:
+GOOGLE_CLIENT_ID = "999544977980-r1vcsqe30c273mu5ufhbt5lba58eqpri.apps.googleusercontent.com"
 
 db.init_app(app)
 with app.app_context(): db.create_all()
@@ -52,7 +60,53 @@ def admin(): return render_template('admin.html')
 @app.route('/orders')
 def orders_page(): return render_template('orders.html')
 
-# ===== API ROUTES =====
+# ===== API ROUTES: AUTHENTICATION =====
+@app.route('/api/auth/register', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    if User.query.filter_by(email=data['email']).first(): return jsonify({'error': 'Email terdaftar'}), 400
+    user = User(name=data['name'], email=data['email'], password=generate_password_hash(data['password']), avatar=data['name'][0].upper())
+    db.session.add(user)
+    db.session.commit()
+    return jsonify(user.to_dict()), 201
+
+@app.route('/api/auth/login', methods=['POST'])
+def login_user():
+    data = request.get_json()
+    user = User.query.filter_by(email=data['email']).first()
+    if not user or not check_password_hash(user.password, data['password']): return jsonify({'error': 'Email/pass salah'}), 401
+    return jsonify(user.to_dict())
+
+# API BARU: MENANGKAP DAN MEMVALIDASI LOGIN GOOGLE ASLI
+@app.route('/api/auth/google', methods=['POST'])
+def google_login():
+    data = request.get_json()
+    token = data.get('token')
+    try:
+        # Memvalidasi token secara aman langsung ke server Google
+        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
+        
+        email = idinfo['email']
+        name = idinfo.get('name', 'Pengguna Google')
+        
+        # Cek apakah email Google ini sudah terdaftar di database PostgreSQL kita
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Jika belum ada, otomatis daftarkan akun baru (Single Sign-On)
+            user = User(
+                name=name, 
+                email=email, 
+                password=generate_password_hash('sso_google_secured_password_random'), 
+                avatar=name[0].upper()
+            )
+            db.session.add(user)
+            db.session.commit()
+            
+        return jsonify(user.to_dict()), 200
+    except ValueError:
+        return jsonify({'error': 'Token Otentikasi Google Tidak Valid'}), 401
+
+# ===== API ROUTES: PRODUCTS & STORES =====
 @app.route('/api/products', methods=['GET'])
 def get_products():
     lunas_orders = Order.query.filter(Order.status.in_(['lunas', 'verifikasi_kirim', 'dikirim', 'verifikasi_terima', 'selesai'])).all()
@@ -90,16 +144,11 @@ def create_product():
     db.session.commit()
     return jsonify(product.to_dict()), 201
 
-# API ULASAN / REVIEWS (ANTI SPAM)
 @app.route('/api/reviews', methods=['POST'])
 def create_review():
     data = request.get_json()
-    
-    # CEK: Jika pembeli sudah mengulas produk ini, tolak permintaannya
     existing_review = Review.query.filter_by(product_id=data['product_id'], reviewer_id=data['reviewer_id']).first()
-    if existing_review:
-        return jsonify({'error': 'Anda sudah mengulas produk ini sebelumnya'}), 400
-        
+    if existing_review: return jsonify({'error': 'Sudah mengulas'}), 400
     review = Review(product_id=data['product_id'], reviewer_id=data['reviewer_id'], rating=data['rating'], comment=data.get('comment', ''))
     db.session.add(review)
     db.session.commit()
@@ -129,22 +178,7 @@ def get_store_dashboard(seller_id):
         items_data.append({'id': p.id, 'title': p.title, 'price': p.price, 'category': p.category, 'condition': p.condition, 'desc': p.description, 'status': status, 'order_status': order_status, 'order_id': order_id})
     return jsonify({'items': items_data, 'total_revenue': total_revenue})
 
-@app.route('/api/auth/register', methods=['POST'])
-def register_user():
-    data = request.get_json()
-    if User.query.filter_by(email=data['email']).first(): return jsonify({'error': 'Email terdaftar'}), 400
-    user = User(name=data['name'], email=data['email'], password=generate_password_hash(data['password']), avatar=data['name'][0].upper())
-    db.session.add(user)
-    db.session.commit()
-    return jsonify(user.to_dict()), 201
-
-@app.route('/api/auth/login', methods=['POST'])
-def login_user():
-    data = request.get_json()
-    user = User.query.filter_by(email=data['email']).first()
-    if not user or not check_password_hash(user.password, data['password']): return jsonify({'error': 'Email/pass salah'}), 401
-    return jsonify(user.to_dict())
-
+# ===== API ROUTES: CART, WISHLIST, ORDERS =====
 @app.route('/api/cart/<int:user_id>', methods=['GET'])
 def get_cart(user_id): return jsonify([item.to_dict() for item in CartItem.query.filter_by(user_id=user_id).all()])
 @app.route('/api/cart', methods=['POST'])
@@ -184,7 +218,6 @@ def create_order():
     db.session.commit()
     return jsonify(order.to_dict()), 201
 
-# CEK STATUS ULASAN SAAT MEMUAT PESANAN PEMBELI
 @app.route('/api/orders/buyer/<int:buyer_id>', methods=['GET'])
 def get_buyer_orders(buyer_id):
     orders = Order.query.filter_by(user_id=buyer_id).order_by(Order.created_at.desc()).all()
@@ -192,11 +225,9 @@ def get_buyer_orders(buyer_id):
     for o in orders:
         o_dict = o.to_dict()
         if o.items:
-            # Mengecek apakah pembeli sudah mengulas produk di pesanan ini
             has_reviewed = Review.query.filter_by(product_id=o.items[0].product_id, reviewer_id=buyer_id).first() is not None
             o_dict['is_reviewed'] = has_reviewed
-        else:
-            o_dict['is_reviewed'] = False
+        else: o_dict['is_reviewed'] = False
         res.append(o_dict)
     return jsonify(res)
 
@@ -213,6 +244,7 @@ def upload_order_proof(order_id):
     db.session.commit()
     return jsonify(order.to_dict())
 
+# ===== API ROUTES: ADMINISTRATOR =====
 @app.route('/api/admin/stats', methods=['GET'])
 def get_admin_stats():
     from sqlalchemy import func
@@ -261,6 +293,7 @@ def send_as_admin():
     db.session.commit()
     return jsonify(msg.to_dict())
 
+# ===== API ROUTES: CHAT ENGINE =====
 @app.route('/api/messages', methods=['POST'])
 def send_message():
     data = request.get_json()
